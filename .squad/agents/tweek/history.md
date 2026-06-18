@@ -8,3 +8,6 @@
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+📌 Team update (2026-06-18T15:30:12-04:00): Repo structure is anchored by `foundry-billing.slnx`, with .NET projects under `src/` and `tests/`, the frontend under `src/web/`, and local orchestration owned by `FoundryBilling.AppHost` plus `FoundryBilling.ServiceDefaults`. — decided by Randy
+📌 Team update (2026-06-18T15:30:12-04:00): Backend seams are standardized around `/api/billing` and `/api/projects`, with Azure SDK and CORS registration isolated in `Infrastructure` and `Services`. — decided by Kyle
+📌 Team update (2026-06-18T15:30:12-04:00): The frontend scaffold uses Vite + React + TypeScript with a typed `/api` client and lightweight hash navigation rooted in `src/web/`. — decided by Stan

@@ -1,10 +1,12 @@
 using FoundryBilling.Api.Endpoints;
+using FoundryBilling.Api.Data;
 using FoundryBilling.Api.Infrastructure;
 using FoundryBilling.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddNpgsqlDbContext<BillingDbContext>("foundry-billing-db");
 
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options =>
