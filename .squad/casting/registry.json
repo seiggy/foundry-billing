@@ -1,0 +1,44 @@
+{
+  "agents": {
+    "randy": {
+      "persistent_name": "Randy",
+      "universe": "South Park",
+      "role": "Lead",
+      "created_at": "2026-06-18T15:21:16-04:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "kyle": {
+      "persistent_name": "Kyle",
+      "universe": "South Park",
+      "role": "Backend Dev",
+      "created_at": "2026-06-18T15:21:16-04:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "stan": {
+      "persistent_name": "Stan",
+      "universe": "South Park",
+      "role": "Frontend Dev",
+      "created_at": "2026-06-18T15:21:16-04:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "butters": {
+      "persistent_name": "Butters",
+      "universe": "South Park",
+      "role": "Tester",
+      "created_at": "2026-06-18T15:21:16-04:00",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "tweek": {
+      "persistent_name": "Tweek",
+      "universe": "South Park",
+      "role": "DevOps/Infra",
+      "created_at": "2026-06-18T15:21:16-04:00",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}

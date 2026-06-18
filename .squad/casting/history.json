@@ -1,0 +1,23 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "South Park",
+      "used_at": "2026-06-18T15:21:16-04:00",
+      "project": "foundry-billing"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "foundry-billing-2026-06-18": {
+      "assignment_id": "foundry-billing-2026-06-18",
+      "universe": "South Park",
+      "created_at": "2026-06-18T15:21:16-04:00",
+      "agents": {
+        "randy": { "role": "Lead", "name": "Randy" },
+        "kyle": { "role": "Backend Dev", "name": "Kyle" },
+        "stan": { "role": "Frontend Dev", "name": "Stan" },
+        "butters": { "role": "Tester", "name": "Butters" },
+        "tweek": { "role": "DevOps/Infra", "name": "Tweek" }
+      }
+    }
+  }
+}
