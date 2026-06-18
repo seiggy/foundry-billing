@@ -1,0 +1,20 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.5">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FoundryBilling.Api\FoundryBilling.Api.csproj" />
+    <ProjectReference Include="..\FoundryBilling.ServiceDefaults\FoundryBilling.ServiceDefaults.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>9c6e43e7-3649-4a6c-a12f-c35d59e41199</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

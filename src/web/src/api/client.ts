@@ -1,0 +1,69 @@
+import type { BillingMetric, FoundryProject, UsageSummary } from '../types/billing'
+
+const API_ROOT = '/api'
+
+function toApiPath(path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+
+  return normalizedPath.startsWith(API_ROOT)
+    ? normalizedPath
+    : `${API_ROOT}${normalizedPath}`
+}
+
+export class ApiError extends Error {
+  readonly status: number
+  readonly details: string
+
+  constructor(status: number, details: string) {
+    super(`API request failed with status ${status}`)
+    this.name = 'ApiError'
+    this.status = status
+    this.details = details
+  }
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (contentType.includes('application/json')) {
+    return (await response.json()) as T
+  }
+
+  return (await response.text()) as unknown as T
+}
+
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers)
+
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json')
+  }
+
+  if (init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  const response = await fetch(toApiPath(path), {
+    ...init,
+    headers,
+  })
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text())
+  }
+
+  return parseResponse<T>(response)
+}
+
+export const billingClient = {
+  getMetrics: () => apiFetch<BillingMetric[]>('/billing/metrics'),
+  getProjects: () => apiFetch<FoundryProject[]>('/billing/projects'),
+  getUsageSummary: () => apiFetch<UsageSummary>('/billing/summary'),
+}

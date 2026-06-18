@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FoundryBilling.Api/FoundryBilling.Api.csproj" />
+    <Project Path="src/FoundryBilling.AppHost/FoundryBilling.AppHost.csproj" />
+    <Project Path="src/FoundryBilling.ServiceDefaults/FoundryBilling.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FoundryBilling.Api.Tests/FoundryBilling.Api.Tests.csproj" />
+  </Folder>
+</Solution>

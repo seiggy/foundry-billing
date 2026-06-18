@@ -1,0 +1,48 @@
+using FoundryBilling.Api.Endpoints;
+using FoundryBilling.Api.Infrastructure;
+using FoundryBilling.Api.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
+
+builder.Services.AddOpenApi();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("WebClient", policy =>
+    {
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+        if (allowedOrigins is null || allowedOrigins.Length == 0)
+        {
+            allowedOrigins = ["http://localhost:3000", "http://localhost:5173"];
+        }
+
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+builder.Services.AddFoundryBillingInfrastructure(builder.Configuration);
+builder.Services.AddFoundryBillingServices();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
+app.UseHttpsRedirection();
+app.UseCors("WebClient");
+
+app.MapDefaultEndpoints();
+app.MapFoundryBillingEndpoints();
+
+app.Run();
+
+public partial class Program;
+
+public partial class Program
+{
+}
