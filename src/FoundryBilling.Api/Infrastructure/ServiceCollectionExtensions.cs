@@ -16,8 +16,18 @@ public static class ServiceCollectionExtensions
         services.Configure<AzureBillingOptions>(configuration.GetSection(AzureBillingOptions.SectionName));
         services.Configure<SyncOptions>(configuration.GetSection(SyncOptions.SectionName));
 
-        services.AddSingleton<DefaultAzureCredential>();
-        services.AddSingleton<TokenCredential>(serviceProvider => serviceProvider.GetRequiredService<DefaultAzureCredential>());
+        services.AddSingleton<TokenCredential>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AzureBillingOptions>>().Value;
+            var credentialOptions = new DefaultAzureCredentialOptions();
+
+            if (!string.IsNullOrWhiteSpace(options.TenantId))
+            {
+                credentialOptions.TenantId = options.TenantId;
+            }
+
+            return new DefaultAzureCredential(credentialOptions);
+        });
         services.AddSingleton(serviceProvider =>
         {
             var credential = serviceProvider.GetRequiredService<TokenCredential>();
