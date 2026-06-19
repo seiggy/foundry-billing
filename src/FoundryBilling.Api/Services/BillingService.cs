@@ -61,23 +61,33 @@ public sealed class BillingService(BillingDbContext dbContext, ILogger<BillingSe
             })
             .SingleOrDefaultAsync(cancellationToken);
 
-        var byModel = await dbContext.UsageMetricSlices
+        var sliceData = await dbContext.UsageMetricSlices
             .AsNoTracking()
             .Join(dbContext.ModelDeployments,
                 slice => slice.DeploymentId,
                 deployment => deployment.Id,
-                (slice, deployment) => new { slice, deployment })
-            .Where(x => startDate == null || x.slice.Timestamp >= new DateTimeOffset(startDate.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero))
-            .Where(x => endDate == null || x.slice.Timestamp < new DateTimeOffset(endDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero))
-            .GroupBy(x => x.deployment.ModelName)
+                (slice, deployment) => new
+                {
+                    deployment.ModelName,
+                    slice.PromptTokens,
+                    slice.CompletionTokens,
+                    slice.TotalTokens,
+                    slice.Timestamp
+                })
+            .Where(x => startDate == null || x.Timestamp >= new DateTimeOffset(startDate.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero))
+            .Where(x => endDate == null || x.Timestamp < new DateTimeOffset(endDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero))
+            .ToListAsync(cancellationToken);
+
+        var byModel = sliceData
+            .GroupBy(x => x.ModelName)
             .Select(group => new ModelUsageBreakdown(
                 group.Key,
-                group.Sum(x => x.slice.PromptTokens),
-                group.Sum(x => x.slice.CompletionTokens),
-                group.Sum(x => x.slice.TotalTokens)))
+                group.Sum(x => x.PromptTokens),
+                group.Sum(x => x.CompletionTokens),
+                group.Sum(x => x.TotalTokens)))
             .OrderByDescending(x => x.TotalTokens)
             .ThenBy(x => x.ModelName)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         return new UsageSummaryResponse(
             hubCount,
