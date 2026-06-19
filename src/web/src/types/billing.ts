@@ -90,3 +90,96 @@ export interface SyncRun {
 export interface SyncHistory {
   runs: SyncRun[]
 }
+
+export type DeploymentType = 'Global' | 'Data Zone' | 'Regional'
+
+export interface UsageAnalyticsDailyDatum {
+  date: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+export interface UsageAnalyticsModelBreakdown {
+  modelName: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  deploymentCount: number
+}
+
+export interface UsageAnalyticsDeploymentBreakdown {
+  deploymentName: string
+  modelName: string
+  hubName: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+export interface UsageAnalytics {
+  days: number
+  windowStart: string
+  windowEnd: string
+  totalPromptTokens: number
+  totalCompletionTokens: number
+  totalTokens: number
+  dailyUsage: UsageAnalyticsDailyDatum[]
+  byModel: UsageAnalyticsModelBreakdown[]
+  byDeployment: UsageAnalyticsDeploymentBreakdown[]
+}
+
+export interface TpmAnalyticsModel {
+  modelName: string
+  totalTokens: number
+  avgTpm: number
+  p95Tpm: number
+  p99Tpm: number
+  maxTpm: number
+}
+
+export interface TpmAnalytics {
+  days: number
+  totalMinutesInWindow: number
+  models: TpmAnalyticsModel[]
+}
+
+export interface PtuCalculationModelRequest {
+  modelName: string
+  totalTokens: number
+  avgTpm: number
+  p99Tpm: number
+  inputRate: number | null
+  outputRate: number | null
+  tpmPerPtu: number | null
+  deploymentType: DeploymentType
+}
+
+export interface PtuCalculationRequest {
+  days: number
+  models: PtuCalculationModelRequest[]
+}
+
+export interface PtuRecommendationModel {
+  modelName: string
+  avgTpm: number
+  p99Tpm: number
+  tpmPerPtu: number
+  recommendedPtus: number
+  minimumPtus: number
+  utilizationAtRecommended: number
+}
+
+export interface PtuRecommendationCostComparison {
+  paygoCostEstimate: number
+  ptuOnDemandMonthly: number
+  ptuMonthlyReserved: number
+  ptuYearlyReserved: number
+  spilloverEstimate: number
+  recommendation: string
+}
+
+export interface PtuRecommendation {
+  models: PtuRecommendationModel[]
+  costComparison: PtuRecommendationCostComparison
+}

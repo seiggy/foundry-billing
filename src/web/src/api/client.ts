@@ -4,8 +4,12 @@ import type {
   FoundryAgent,
   FoundryHub,
   FoundryProject,
+  PtuCalculationRequest,
+  PtuRecommendation,
   SyncHistory,
   SyncStatus,
+  TpmAnalytics,
+  UsageAnalytics,
   UsageSummary,
 } from '../types/billing'
 
@@ -97,6 +101,16 @@ export const billingClient = {
     return apiFetch<FoundryAgent[]>(query ? `/api/agents?${query}` : '/api/agents')
   },
   getProjects: () => apiFetch<FoundryProject[]>('/api/projects'),
+}
+
+export const analyticsClient = {
+  getUsage: (days: number = 30) => apiFetch<UsageAnalytics>(`/api/analytics/usage?days=${days}`),
+  getTpm: (days: number = 30) => apiFetch<TpmAnalytics>(`/api/analytics/tpm?days=${days}`),
+  calculatePtu: (request: PtuCalculationRequest) =>
+    apiFetch<PtuRecommendation>('/api/analytics/ptu-recommendation', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
 }
 
 export const syncClient = {

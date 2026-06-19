@@ -8,6 +8,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFoundryBillingServices(this IServiceCollection services)
     {
         services.AddScoped<IBillingService, BillingService>();
+        services.AddSingleton<PtuCalculatorService>();
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IFoundryDiscoveryService, FoundryDiscoveryService>();
         services.AddScoped<IMetricsSyncService, MetricsSyncService>();

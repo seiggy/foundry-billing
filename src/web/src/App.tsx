@@ -2,11 +2,12 @@ import './App.css'
 import { Agents } from './pages/Agents'
 import { Dashboard } from './pages/Dashboard'
 import { Projects } from './pages/Projects'
-import { Reports } from './pages/Reports'
+import { PtuCalculator } from './pages/PtuCalculator'
+import { Analytics } from './pages/Reports'
 import { Sync } from './pages/Sync'
 import { useHashRoute } from './hooks/useHashRoute'
 
-const routes = ['dashboard', 'projects', 'reports', 'sync', 'agents'] as const
+const routes = ['dashboard', 'projects', 'agents', 'analytics', 'ptu-calc', 'sync'] as const
 
 type RouteKey = (typeof routes)[number]
 
@@ -17,9 +18,10 @@ const navigation: ReadonlyArray<{
 }> = [
   { key: 'dashboard', label: 'Dashboard', description: 'Live token flow' },
   { key: 'projects', label: 'Projects', description: 'Hub and project inventory' },
-  { key: 'reports', label: 'Reports', description: 'Deployment usage in the last 24h' },
-  { key: 'sync', label: 'Sync', description: 'Worker status and run history' },
   { key: 'agents', label: 'Agents', description: 'Prompt and hosted agent inventory' },
+  { key: 'analytics', label: 'Analytics', description: 'Usage curves, model mix, deployment burn' },
+  { key: 'ptu-calc', label: 'PTU Calc', description: 'TPM sizing, pricing, and reserved capacity' },
+  { key: 'sync', label: 'Sync', description: 'Worker status and run history' },
 ]
 
 function renderRoute(route: RouteKey) {
@@ -28,12 +30,14 @@ function renderRoute(route: RouteKey) {
       return <Dashboard />
     case 'projects':
       return <Projects />
-    case 'reports':
-      return <Reports />
-    case 'sync':
-      return <Sync />
     case 'agents':
       return <Agents />
+    case 'analytics':
+      return <Analytics />
+    case 'ptu-calc':
+      return <PtuCalculator />
+    case 'sync':
+      return <Sync />
   }
 }
 
@@ -47,7 +51,8 @@ function App() {
           <p className="app-kicker">Foundry Billing</p>
           <h1>Billing monitor</h1>
           <p className="app-summary">
-            Live inventory and token usage from the API across hubs, projects, and deployments.
+            Live inventory and token usage from the API across hubs, projects, deployments, and
+            PTU planning surfaces.
           </p>
         </div>
         <div className="app-meta">
