@@ -55,3 +55,25 @@ export interface FoundryProject {
   region: string
   lastSyncedAt: string | null
 }
+
+export interface SyncStatus {
+  isRunning: boolean
+  currentRun: { id: string; startedAt: string; status: string } | null
+  lastCompletedAt: string | null
+}
+
+export interface SyncRun {
+  id: string
+  startedAt: string
+  completedAt: string | null
+  status: 'Running' | 'Completed' | 'Failed'
+  errorMessage: string | null
+  hubsDiscovered: number
+  projectsDiscovered: number
+  deploymentsDiscovered: number
+  usageSlicesInserted: number
+}
+
+export interface SyncHistory {
+  runs: SyncRun[]
+}

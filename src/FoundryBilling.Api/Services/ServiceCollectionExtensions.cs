@@ -11,7 +11,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IFoundryDiscoveryService, FoundryDiscoveryService>();
         services.AddScoped<IMetricsSyncService, MetricsSyncService>();
-        services.AddHostedService<MetricsSyncWorker>();
+        services.AddSingleton<MetricsSyncWorker>();
+        services.AddSingleton<ISyncTriggerService>(serviceProvider => serviceProvider.GetRequiredService<MetricsSyncWorker>());
+        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<MetricsSyncWorker>());
 
         return services;
     }

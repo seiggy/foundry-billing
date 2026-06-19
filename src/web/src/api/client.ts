@@ -3,6 +3,8 @@ import type {
   Deployment,
   FoundryHub,
   FoundryProject,
+  SyncHistory,
+  SyncStatus,
   UsageSummary,
 } from '../types/billing'
 
@@ -79,4 +81,10 @@ export const billingClient = {
         : '/api/deployments',
     ),
   getProjects: () => apiFetch<FoundryProject[]>('/api/projects'),
+}
+
+export const syncClient = {
+  getStatus: () => apiFetch<SyncStatus>('/api/sync/status'),
+  getHistory: () => apiFetch<SyncHistory>('/api/sync/history'),
+  trigger: () => apiFetch<{ runId: string }>('/api/sync/trigger', { method: 'POST' }),
 }

@@ -4,14 +4,30 @@ using FoundryBilling.Api.Infrastructure;
 using FoundryBilling.Api.Services.Sync;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Threading.Channels;
 
 namespace FoundryBilling.Api.Workers;
 
-public sealed class MetricsSyncWorker : BackgroundService
+public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
 {
+    private const string RunningStatus = "Running";
+    private const string CompletedStatus = "Completed";
+    private const string FailedStatus = "Failed";
+
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IOptionsMonitor<SyncOptions> _syncOptions;
     private readonly ILogger<MetricsSyncWorker> _logger;
+    private readonly object _stateLock = new();
+    private readonly Channel<bool> _triggerChannel = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
+    });
+
+    private volatile bool _isRunning;
+    private SyncRunStatus? _currentRun;
+    private SyncRunStatus? _pendingRun;
 
     public MetricsSyncWorker(
         IServiceScopeFactory serviceScopeFactory,
@@ -23,23 +39,67 @@ public sealed class MetricsSyncWorker : BackgroundService
         _logger = logger;
     }
 
+    public bool IsRunning => _isRunning;
+
+    public SyncRunStatus? CurrentRun
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                return _currentRun;
+            }
+        }
+    }
+
+    public SyncRunStatus? PendingRun
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                return _pendingRun;
+            }
+        }
+    }
+
+    public Task TriggerSyncAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        lock (_stateLock)
+        {
+            _pendingRun ??= new SyncRunStatus(Guid.NewGuid(), DateTimeOffset.UtcNow, RunningStatus);
+        }
+
+        _triggerChannel.Writer.TryWrite(true);
+        return Task.CompletedTask;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Metrics sync worker started.");
 
+        await RunCycleSafelyAsync(null, stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            await RunCycleSafelyAsync(stoppingToken);
-
-            var interval = GetInterval();
-            using var timer = new PeriodicTimer(interval);
+            var pendingRun = TryDequeuePendingRun();
+            if (pendingRun is not null)
+            {
+                await RunCycleSafelyAsync(pendingRun, stoppingToken);
+                continue;
+            }
 
             try
             {
-                if (!await timer.WaitForNextTickAsync(stoppingToken))
+                pendingRun = await WaitForNextRunAsync(stoppingToken);
+                if (stoppingToken.IsCancellationRequested)
                 {
                     break;
                 }
+
+                await RunCycleSafelyAsync(pendingRun, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -50,11 +110,14 @@ public sealed class MetricsSyncWorker : BackgroundService
         _logger.LogInformation("Metrics sync worker stopped.");
     }
 
-    private async Task RunCycleSafelyAsync(CancellationToken stoppingToken)
+    private async Task RunCycleSafelyAsync(SyncRunStatus? requestedRun, CancellationToken stoppingToken)
     {
+        var currentRun = requestedRun ?? new SyncRunStatus(Guid.NewGuid(), DateTimeOffset.UtcNow, RunningStatus);
+        SetCurrentRun(currentRun);
+
         try
         {
-            await RunCycleAsync(stoppingToken);
+            await RunCycleAsync(currentRun, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -63,92 +126,135 @@ public sealed class MetricsSyncWorker : BackgroundService
         {
             _logger.LogError(ex, "Metrics sync cycle failed.");
         }
+        finally
+        {
+            ClearCurrentRun(currentRun.Id);
+        }
     }
 
-    private async Task RunCycleAsync(CancellationToken stoppingToken)
+    private async Task RunCycleAsync(SyncRunStatus runStatus, CancellationToken stoppingToken)
     {
         await using var scope = _serviceScopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
         var discoveryService = scope.ServiceProvider.GetRequiredService<IFoundryDiscoveryService>();
         var metricsSyncService = scope.ServiceProvider.GetRequiredService<IMetricsSyncService>();
         var syncOptions = _syncOptions.CurrentValue;
-        var syncTimestamp = DateTimeOffset.UtcNow;
-
-        var discoveredHubs = await discoveryService.DiscoverHubsAsync(stoppingToken);
-        var existingHubs = await dbContext.FoundryHubs.ToListAsync(stoppingToken);
-        var hubsByResourceId = existingHubs.ToDictionary(hub => hub.AzureResourceId, StringComparer.OrdinalIgnoreCase);
-
-        var summary = new SyncSummary();
-        foreach (var discoveredHub in discoveredHubs)
+        var syncRun = new SyncRun
         {
-            if (!hubsByResourceId.TryGetValue(discoveredHub.ResourceId, out var hubEntity))
-            {
-                hubEntity = new FoundryHub
-                {
-                    Id = Guid.NewGuid(),
-                    AzureResourceId = discoveredHub.ResourceId,
-                    Name = discoveredHub.Name,
-                    SubscriptionId = discoveredHub.SubscriptionId,
-                    ResourceGroup = discoveredHub.ResourceGroup,
-                    Region = discoveredHub.Region,
-                    LastSyncedAt = syncTimestamp
-                };
+            Id = runStatus.Id,
+            StartedAt = runStatus.StartedAt,
+            Status = RunningStatus
+        };
 
-                dbContext.FoundryHubs.Add(hubEntity);
-                hubsByResourceId[discoveredHub.ResourceId] = hubEntity;
-                summary.HubsInserted++;
-            }
-            else
-            {
-                hubEntity.Name = discoveredHub.Name;
-                hubEntity.SubscriptionId = discoveredHub.SubscriptionId;
-                hubEntity.ResourceGroup = discoveredHub.ResourceGroup;
-                hubEntity.Region = discoveredHub.Region;
-                hubEntity.LastSyncedAt = syncTimestamp;
-                summary.HubsUpdated++;
-            }
-        }
-
+        dbContext.SyncRuns.Add(syncRun);
         await dbContext.SaveChangesAsync(stoppingToken);
 
-        foreach (var discoveredHub in discoveredHubs)
+        try
         {
-            if (!hubsByResourceId.TryGetValue(discoveredHub.ResourceId, out var hubEntity))
+            var syncTimestamp = DateTimeOffset.UtcNow;
+            var discoveredHubs = await discoveryService.DiscoverHubsAsync(stoppingToken);
+            var existingHubs = await dbContext.FoundryHubs.ToListAsync(stoppingToken);
+            var hubsByResourceId = existingHubs.ToDictionary(hub => hub.AzureResourceId, StringComparer.OrdinalIgnoreCase);
+
+            var summary = new SyncSummary
             {
-                continue;
+                HubsDiscovered = discoveredHubs.Count
+            };
+
+            foreach (var discoveredHub in discoveredHubs)
+            {
+                if (!hubsByResourceId.TryGetValue(discoveredHub.ResourceId, out var hubEntity))
+                {
+                    hubEntity = new FoundryHub
+                    {
+                        Id = Guid.NewGuid(),
+                        AzureResourceId = discoveredHub.ResourceId,
+                        Name = discoveredHub.Name,
+                        SubscriptionId = discoveredHub.SubscriptionId,
+                        ResourceGroup = discoveredHub.ResourceGroup,
+                        Region = discoveredHub.Region,
+                        LastSyncedAt = syncTimestamp
+                    };
+
+                    dbContext.FoundryHubs.Add(hubEntity);
+                    hubsByResourceId[discoveredHub.ResourceId] = hubEntity;
+                    summary.HubsInserted++;
+                }
+                else
+                {
+                    hubEntity.Name = discoveredHub.Name;
+                    hubEntity.SubscriptionId = discoveredHub.SubscriptionId;
+                    hubEntity.ResourceGroup = discoveredHub.ResourceGroup;
+                    hubEntity.Region = discoveredHub.Region;
+                    hubEntity.LastSyncedAt = syncTimestamp;
+                    summary.HubsUpdated++;
+                }
             }
 
-            try
+            await dbContext.SaveChangesAsync(stoppingToken);
+
+            foreach (var discoveredHub in discoveredHubs)
             {
-                await SyncHubAsync(
-                    dbContext,
-                    discoveryService,
-                    metricsSyncService,
-                    hubEntity,
-                    syncOptions,
-                    syncTimestamp,
-                    summary,
-                    stoppingToken);
+                if (!hubsByResourceId.TryGetValue(discoveredHub.ResourceId, out var hubEntity))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await SyncHubAsync(
+                        dbContext,
+                        discoveryService,
+                        metricsSyncService,
+                        hubEntity,
+                        syncOptions,
+                        syncTimestamp,
+                        summary,
+                        stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    summary.FailedHubCount++;
+                    _logger.LogError(ex, "Metrics sync failed for hub {HubName} ({HubResourceId}).", hubEntity.Name, hubEntity.AzureResourceId);
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Metrics sync failed for hub {HubName} ({HubResourceId}).", hubEntity.Name, hubEntity.AzureResourceId);
-            }
+
+            syncRun.CompletedAt = DateTimeOffset.UtcNow;
+            syncRun.Status = summary.FailedHubCount > 0
+                ? FailedStatus
+                : CompletedStatus;
+            syncRun.ErrorMessage = summary.FailedHubCount > 0
+                ? $"{summary.FailedHubCount} hub sync operation(s) failed. See logs for details."
+                : null;
+            syncRun.HubsDiscovered = summary.HubsDiscovered;
+            syncRun.ProjectsDiscovered = summary.ProjectsDiscovered;
+            syncRun.DeploymentsDiscovered = summary.DeploymentsDiscovered;
+            syncRun.UsageSlicesInserted = summary.UsageSlicesInserted;
+
+            await dbContext.SaveChangesAsync(stoppingToken);
+
+            _logger.LogInformation(
+                "Metrics sync cycle completed with status {Status}. Hubs discovered: {HubsDiscovered}. Projects discovered: {ProjectsDiscovered}. Deployments discovered: {DeploymentsDiscovered}. Usage slices inserted: {UsageSlicesInserted}.",
+                syncRun.Status,
+                summary.HubsDiscovered,
+                summary.ProjectsDiscovered,
+                summary.DeploymentsDiscovered,
+                summary.UsageSlicesInserted);
         }
-
-        _logger.LogInformation(
-            "Metrics sync cycle completed. Hubs: {HubsInserted} inserted, {HubsUpdated} updated. Projects: {ProjectsInserted} inserted, {ProjectsUpdated} updated. Deployments: {DeploymentsInserted} inserted, {DeploymentsUpdated} updated. Usage slices inserted: {UsageSlicesInserted}.",
-            summary.HubsInserted,
-            summary.HubsUpdated,
-            summary.ProjectsInserted,
-            summary.ProjectsUpdated,
-            summary.DeploymentsInserted,
-            summary.DeploymentsUpdated,
-            summary.UsageSlicesInserted);
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            await FinalizeFailedRunAsync(dbContext, syncRun, "Sync was canceled.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await FinalizeFailedRunAsync(dbContext, syncRun, ex.Message);
+            throw;
+        }
     }
 
     private async Task SyncHubAsync(
@@ -167,6 +273,7 @@ public sealed class MetricsSyncWorker : BackgroundService
         var projectsByResourceId = existingProjects.ToDictionary(project => project.AzureResourceId, StringComparer.OrdinalIgnoreCase);
 
         var discoveredProjects = await discoveryService.DiscoverProjectsAsync(hubEntity.AzureResourceId, stoppingToken);
+        summary.ProjectsDiscovered += discoveredProjects.Count;
         foreach (var discoveredProject in discoveredProjects)
         {
             var projectName = string.IsNullOrWhiteSpace(discoveredProject.DisplayName)
@@ -199,6 +306,7 @@ public sealed class MetricsSyncWorker : BackgroundService
         var deploymentsByResourceId = existingDeployments.ToDictionary(deployment => deployment.AzureResourceId, StringComparer.OrdinalIgnoreCase);
 
         var discoveredDeployments = await discoveryService.DiscoverDeploymentsAsync(hubEntity.AzureResourceId, stoppingToken);
+        summary.DeploymentsDiscovered += discoveredDeployments.Count;
         foreach (var discoveredDeployment in discoveredDeployments)
         {
             if (!deploymentsByResourceId.TryGetValue(discoveredDeployment.ResourceId, out var deploymentEntity))
@@ -292,21 +400,93 @@ public sealed class MetricsSyncWorker : BackgroundService
     private TimeSpan GetInterval()
         => TimeSpan.FromMinutes(Math.Max(1, _syncOptions.CurrentValue.IntervalMinutes));
 
+    private async Task<SyncRunStatus?> WaitForNextRunAsync(CancellationToken stoppingToken)
+    {
+        var timerTask = Task.Delay(GetInterval(), stoppingToken);
+        var triggerTask = _triggerChannel.Reader.WaitToReadAsync(stoppingToken).AsTask();
+        var completedTask = await Task.WhenAny(timerTask, triggerTask);
+
+        if (completedTask == triggerTask && await triggerTask)
+        {
+            while (_triggerChannel.Reader.TryRead(out _))
+            {
+            }
+
+            return TryDequeuePendingRun();
+        }
+
+        return TryDequeuePendingRun();
+    }
+
+    private void SetCurrentRun(SyncRunStatus runStatus)
+    {
+        _isRunning = true;
+
+        lock (_stateLock)
+        {
+            _currentRun = runStatus;
+            if (_pendingRun?.Id == runStatus.Id)
+            {
+                _pendingRun = null;
+            }
+        }
+    }
+
+    private void ClearCurrentRun(Guid runId)
+    {
+        lock (_stateLock)
+        {
+            if (_currentRun?.Id == runId)
+            {
+                _currentRun = null;
+            }
+        }
+
+        _isRunning = false;
+    }
+
+    private SyncRunStatus? TryDequeuePendingRun()
+    {
+        lock (_stateLock)
+        {
+            var pendingRun = _pendingRun;
+            _pendingRun = null;
+            return pendingRun;
+        }
+    }
+
+    private static async Task FinalizeFailedRunAsync(BillingDbContext dbContext, SyncRun syncRun, string errorMessage)
+    {
+        syncRun.CompletedAt = DateTimeOffset.UtcNow;
+        syncRun.Status = FailedStatus;
+        syncRun.ErrorMessage = errorMessage;
+
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
     private sealed class SyncSummary
     {
+        public int HubsDiscovered { get; set; }
+
         public int HubsInserted { get; set; }
 
         public int HubsUpdated { get; set; }
 
+        public int ProjectsDiscovered { get; set; }
+
         public int ProjectsInserted { get; set; }
 
         public int ProjectsUpdated { get; set; }
+
+        public int DeploymentsDiscovered { get; set; }
 
         public int DeploymentsInserted { get; set; }
 
         public int DeploymentsUpdated { get; set; }
 
         public int UsageSlicesInserted { get; set; }
+
+        public int FailedHubCount { get; set; }
     }
 
     private sealed record SliceKey(Guid DeploymentId, DateTimeOffset Timestamp);

@@ -10,6 +10,7 @@ public static class EndpointRouteBuilderExtensions
         api.MapHubEndpoints();
         api.MapDeploymentEndpoints();
         api.MapProjectEndpoints();
+        api.MapSyncEndpoints();
 
         return app;
     }

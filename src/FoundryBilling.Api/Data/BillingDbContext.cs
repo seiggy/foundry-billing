@@ -16,6 +16,8 @@ public sealed class BillingDbContext(DbContextOptions<BillingDbContext> options)
 
     public DbSet<DailyUsageRollup> DailyUsageRollups => Set<DailyUsageRollup>();
 
+    public DbSet<SyncRun> SyncRuns => Set<SyncRun>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BillingDbContext).Assembly);
@@ -125,5 +127,21 @@ internal sealed class DailyUsageRollupConfiguration : IEntityTypeConfiguration<D
             rollup.Date,
             rollup.DeploymentId
         });
+    }
+}
+
+internal sealed class SyncRunConfiguration : IEntityTypeConfiguration<SyncRun>
+{
+    public void Configure(EntityTypeBuilder<SyncRun> builder)
+    {
+        builder.ToTable("SyncRuns");
+
+        builder.HasKey(run => run.Id);
+
+        builder.Property(run => run.StartedAt).IsRequired();
+        builder.Property(run => run.Status).IsRequired();
+
+        builder.HasIndex(run => run.StartedAt)
+            .IsDescending();
     }
 }
