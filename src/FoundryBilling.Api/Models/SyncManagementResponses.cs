@@ -18,6 +18,7 @@ public sealed record SyncRunResponse(
     int HubsDiscovered,
     int ProjectsDiscovered,
     int DeploymentsDiscovered,
+    int AgentsDiscovered,
     int UsageSlicesInserted);
 
 public sealed record SyncTriggerAcceptedResponse(Guid RunId);

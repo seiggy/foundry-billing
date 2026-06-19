@@ -9,4 +9,6 @@ public interface IFoundryDiscoveryService
     Task<IReadOnlyList<DiscoveredProject>> DiscoverProjectsAsync(string hubResourceId, CancellationToken ct = default);
 
     Task<IReadOnlyList<DiscoveredDeployment>> DiscoverDeploymentsAsync(string hubResourceId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<DiscoveredAgent>> DiscoverAgentsAsync(string hubName, string projectName, CancellationToken ct = default);
 }

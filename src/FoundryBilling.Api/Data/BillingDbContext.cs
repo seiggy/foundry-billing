@@ -10,6 +10,8 @@ public sealed class BillingDbContext(DbContextOptions<BillingDbContext> options)
 
     public DbSet<FoundryProject> FoundryProjects => Set<FoundryProject>();
 
+    public DbSet<FoundryAgent> FoundryAgents => Set<FoundryAgent>();
+
     public DbSet<ModelDeployment> ModelDeployments => Set<ModelDeployment>();
 
     public DbSet<UsageMetricSlice> UsageMetricSlices => Set<UsageMetricSlice>();
@@ -62,6 +64,27 @@ internal sealed class FoundryProjectConfiguration : IEntityTypeConfiguration<Fou
 
         builder.Property(project => project.AzureResourceId).IsRequired();
         builder.Property(project => project.Name).IsRequired();
+
+        builder.HasMany(project => project.Agents)
+            .WithOne(agent => agent.Project)
+            .HasForeignKey(agent => agent.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class FoundryAgentConfiguration : IEntityTypeConfiguration<FoundryAgent>
+{
+    public void Configure(EntityTypeBuilder<FoundryAgent> builder)
+    {
+        builder.ToTable("FoundryAgents");
+
+        builder.HasKey(agent => agent.Id);
+
+        builder.Property(agent => agent.AgentId).IsRequired();
+        builder.Property(agent => agent.Name).IsRequired();
+
+        builder.HasIndex(agent => new { agent.ProjectId, agent.AgentId })
+            .IsUnique();
     }
 }
 

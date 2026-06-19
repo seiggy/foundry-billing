@@ -18,5 +18,7 @@ public sealed class SyncRun
 
     public int DeploymentsDiscovered { get; set; }
 
+    public int AgentsDiscovered { get; set; }
+
     public int UsageSlicesInserted { get; set; }
 }

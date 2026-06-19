@@ -13,4 +13,6 @@ public sealed class FoundryProject
     public DateTimeOffset? LastSyncedAt { get; set; }
 
     public FoundryHub Hub { get; set; } = null!;
+
+    public List<FoundryAgent> Agents { get; } = [];
 }

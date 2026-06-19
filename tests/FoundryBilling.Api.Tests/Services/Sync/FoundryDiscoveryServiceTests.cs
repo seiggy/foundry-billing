@@ -81,9 +81,11 @@ public sealed class FoundryDiscoveryServiceTests
     {
         var options = Substitute.For<IOptions<AzureBillingOptions>>();
         options.Value.Returns(new AzureBillingOptions { SubscriptionId = subscriptionId });
+        var credential = Substitute.For<TokenCredential>();
 
         return new FoundryDiscoveryService(
             armClient,
+            credential,
             options,
             NullLogger<FoundryDiscoveryService>.Instance);
     }

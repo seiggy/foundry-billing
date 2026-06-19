@@ -1,6 +1,7 @@
 import type {
   BillingMetric,
   Deployment,
+  FoundryAgent,
   FoundryHub,
   FoundryProject,
   SyncHistory,
@@ -80,6 +81,21 @@ export const billingClient = {
         ? `/api/deployments?hubId=${encodeURIComponent(hubId)}`
         : '/api/deployments',
     ),
+  getAgents: (hubId?: string, projectId?: string) => {
+    const params = new URLSearchParams()
+
+    if (hubId) {
+      params.set('hubId', hubId)
+    }
+
+    if (projectId) {
+      params.set('projectId', projectId)
+    }
+
+    const query = params.toString()
+
+    return apiFetch<FoundryAgent[]>(query ? `/api/agents?${query}` : '/api/agents')
+  },
   getProjects: () => apiFetch<FoundryProject[]>('/api/projects'),
 }
 

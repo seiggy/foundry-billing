@@ -233,16 +233,18 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
             syncRun.HubsDiscovered = summary.HubsDiscovered;
             syncRun.ProjectsDiscovered = summary.ProjectsDiscovered;
             syncRun.DeploymentsDiscovered = summary.DeploymentsDiscovered;
+            syncRun.AgentsDiscovered = summary.AgentsDiscovered;
             syncRun.UsageSlicesInserted = summary.UsageSlicesInserted;
 
             await dbContext.SaveChangesAsync(stoppingToken);
 
             _logger.LogInformation(
-                "Metrics sync cycle completed with status {Status}. Hubs discovered: {HubsDiscovered}. Projects discovered: {ProjectsDiscovered}. Deployments discovered: {DeploymentsDiscovered}. Usage slices inserted: {UsageSlicesInserted}.",
+                "Metrics sync cycle completed with status {Status}. Hubs discovered: {HubsDiscovered}. Projects discovered: {ProjectsDiscovered}. Deployments discovered: {DeploymentsDiscovered}. Agents discovered: {AgentsDiscovered}. Usage slices inserted: {UsageSlicesInserted}.",
                 syncRun.Status,
                 summary.HubsDiscovered,
                 summary.ProjectsDiscovered,
                 summary.DeploymentsDiscovered,
+                summary.AgentsDiscovered,
                 summary.UsageSlicesInserted);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -276,10 +278,6 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
         summary.ProjectsDiscovered += discoveredProjects.Count;
         foreach (var discoveredProject in discoveredProjects)
         {
-            var projectName = string.IsNullOrWhiteSpace(discoveredProject.DisplayName)
-                ? discoveredProject.Name
-                : discoveredProject.DisplayName;
-
             if (!projectsByResourceId.TryGetValue(discoveredProject.ResourceId, out var projectEntity))
             {
                 dbContext.FoundryProjects.Add(new FoundryProject
@@ -287,7 +285,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
                     Id = Guid.NewGuid(),
                     HubId = hubEntity.Id,
                     AzureResourceId = discoveredProject.ResourceId,
-                    Name = projectName,
+                    Name = discoveredProject.Name,
                     LastSyncedAt = syncTimestamp
                 });
 
@@ -295,7 +293,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
                 continue;
             }
 
-            projectEntity.Name = projectName;
+            projectEntity.Name = discoveredProject.Name;
             projectEntity.LastSyncedAt = syncTimestamp;
             summary.ProjectsUpdated++;
         }
@@ -335,6 +333,50 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
             deploymentEntity.Capacity = discoveredDeployment.Capacity;
             deploymentEntity.LastSyncedAt = syncTimestamp;
             summary.DeploymentsUpdated++;
+        }
+
+        await dbContext.SaveChangesAsync(stoppingToken);
+
+        var projectsForHub = await dbContext.FoundryProjects
+            .Where(project => project.HubId == hubEntity.Id)
+            .ToListAsync(stoppingToken);
+
+        foreach (var projectEntity in projectsForHub)
+        {
+            var existingAgents = await dbContext.FoundryAgents
+                .Where(agent => agent.ProjectId == projectEntity.Id)
+                .ToListAsync(stoppingToken);
+            var agentsByAgentId = existingAgents.ToDictionary(agent => agent.AgentId, StringComparer.OrdinalIgnoreCase);
+
+            var discoveredAgents = await discoveryService.DiscoverAgentsAsync(hubEntity.Name, projectEntity.Name, stoppingToken);
+            summary.AgentsDiscovered += discoveredAgents.Count;
+            foreach (var discoveredAgent in discoveredAgents)
+            {
+                if (!agentsByAgentId.TryGetValue(discoveredAgent.AgentId, out var agentEntity))
+                {
+                    dbContext.FoundryAgents.Add(new FoundryAgent
+                    {
+                        Id = Guid.NewGuid(),
+                        ProjectId = projectEntity.Id,
+                        AgentId = discoveredAgent.AgentId,
+                        Name = discoveredAgent.Name,
+                        Description = discoveredAgent.Description,
+                        ModelName = discoveredAgent.ModelName,
+                        Kind = discoveredAgent.Kind,
+                        CreatedAt = discoveredAgent.CreatedAt,
+                        LastSyncedAt = syncTimestamp
+                    });
+
+                    continue;
+                }
+
+                agentEntity.Name = discoveredAgent.Name;
+                agentEntity.Description = discoveredAgent.Description;
+                agentEntity.ModelName = discoveredAgent.ModelName;
+                agentEntity.Kind = discoveredAgent.Kind;
+                agentEntity.CreatedAt = discoveredAgent.CreatedAt;
+                agentEntity.LastSyncedAt = syncTimestamp;
+            }
         }
 
         await dbContext.SaveChangesAsync(stoppingToken);
@@ -483,6 +525,8 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
         public int DeploymentsInserted { get; set; }
 
         public int DeploymentsUpdated { get; set; }
+
+        public int AgentsDiscovered { get; set; }
 
         public int UsageSlicesInserted { get; set; }
 

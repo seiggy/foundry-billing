@@ -1,27 +1,33 @@
 using Azure;
 using Azure.Core;
 using Azure.Identity;
+using Azure.AI.Projects;
+using Azure.AI.Projects.Agents;
 using Azure.ResourceManager;
 using Azure.ResourceManager.CognitiveServices;
 using Azure.ResourceManager.Resources;
 using FoundryBilling.Api.Infrastructure;
 using FoundryBilling.Api.Models.Sync;
 using Microsoft.Extensions.Options;
+using System.ClientModel;
 
 namespace FoundryBilling.Api.Services.Sync;
 
 public sealed class FoundryDiscoveryService : IFoundryDiscoveryService
 {
     private readonly ArmClient _armClient;
+    private readonly TokenCredential _credential;
     private readonly AzureBillingOptions _azureOptions;
     private readonly ILogger<FoundryDiscoveryService> _logger;
 
     public FoundryDiscoveryService(
         ArmClient armClient,
+        TokenCredential credential,
         IOptions<AzureBillingOptions> azureOptions,
         ILogger<FoundryDiscoveryService> logger)
     {
         _armClient = armClient;
+        _credential = credential;
         _azureOptions = azureOptions.Value;
         _logger = logger;
     }
@@ -152,4 +158,67 @@ public sealed class FoundryDiscoveryService : IFoundryDiscoveryService
             return [];
         }
     }
+
+    public async Task<IReadOnlyList<DiscoveredAgent>> DiscoverAgentsAsync(
+        string hubName,
+        string projectName,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var projectClient = new AIProjectClient(CreateProjectEndpoint(hubName, projectName), _credential);
+            var discoveredAgents = new List<DiscoveredAgent>();
+
+            await foreach (var agent in projectClient.AgentAdministrationClient.GetAgentsAsync(cancellationToken: ct))
+            {
+                var latestVersion = agent.GetLatestVersion();
+                var modelName = latestVersion.Definition switch
+                {
+                    DeclarativeAgentDefinition declarative => declarative.Model,
+                    _ => null
+                };
+
+                discoveredAgents.Add(new DiscoveredAgent(
+                    agent.Id,
+                    agent.Name,
+                    latestVersion.Description,
+                    modelName,
+                    GetAgentKind(latestVersion.Definition),
+                    latestVersion.CreatedAt));
+            }
+
+            return discoveredAgents;
+        }
+        catch (CredentialUnavailableException ex)
+        {
+            _logger.LogWarning(ex, "Azure credentials are unavailable. Foundry agent discovery is disabled for {HubName}/{ProjectName}.", hubName, projectName);
+            return [];
+        }
+        catch (AuthenticationFailedException ex)
+        {
+            _logger.LogWarning(ex, "Azure authentication failed while discovering agents for {HubName}/{ProjectName}.", hubName, projectName);
+            return [];
+        }
+        catch (ClientResultException ex) when (ex.Status is 401 or 403 or 404)
+        {
+            _logger.LogWarning(ex, "Azure request failed while discovering agents for {HubName}/{ProjectName}.", hubName, projectName);
+            return [];
+        }
+    }
+
+    private static Uri CreateProjectEndpoint(string hubName, string projectName)
+        => new($"https://{hubName}.services.ai.azure.com/api/projects/{Uri.EscapeDataString(projectName)}");
+
+    private static string? GetAgentKind(ProjectsAgentDefinition? definition)
+        => definition switch
+        {
+            DeclarativeAgentDefinition => "Prompt",
+            null => null,
+            _ => definition.GetType().Name switch
+            {
+                "HostedAgentDefinition" => "Hosted",
+                "WorkflowAgentDefinition" => "Workflow",
+                _ => definition.GetType().Name.Replace("AgentDefinition", string.Empty, StringComparison.Ordinal)
+            }
+        };
 }

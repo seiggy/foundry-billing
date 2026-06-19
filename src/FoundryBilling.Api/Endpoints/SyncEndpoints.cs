@@ -79,6 +79,7 @@ public static class SyncEndpoints
                 run.HubsDiscovered,
                 run.ProjectsDiscovered,
                 run.DeploymentsDiscovered,
+                run.AgentsDiscovered,
                 run.UsageSlicesInserted))
             .ToListAsync(cancellationToken);
 

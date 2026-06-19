@@ -56,6 +56,19 @@ export interface FoundryProject {
   lastSyncedAt: string | null
 }
 
+export interface FoundryAgent {
+  id: string
+  agentId: string
+  name: string
+  description: string | null
+  modelName: string | null
+  kind: 'Prompt' | 'Hosted' | null
+  projectName: string
+  hubName: string
+  createdAt: string | null
+  lastSyncedAt: string | null
+}
+
 export interface SyncStatus {
   isRunning: boolean
   currentRun: { id: string; startedAt: string; status: string } | null

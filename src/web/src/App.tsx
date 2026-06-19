@@ -1,11 +1,12 @@
 import './App.css'
+import { Agents } from './pages/Agents'
 import { Dashboard } from './pages/Dashboard'
 import { Projects } from './pages/Projects'
 import { Reports } from './pages/Reports'
 import { Sync } from './pages/Sync'
 import { useHashRoute } from './hooks/useHashRoute'
 
-const routes = ['dashboard', 'projects', 'reports', 'sync'] as const
+const routes = ['dashboard', 'projects', 'reports', 'sync', 'agents'] as const
 
 type RouteKey = (typeof routes)[number]
 
@@ -18,6 +19,7 @@ const navigation: ReadonlyArray<{
   { key: 'projects', label: 'Projects', description: 'Hub and project inventory' },
   { key: 'reports', label: 'Reports', description: 'Deployment usage in the last 24h' },
   { key: 'sync', label: 'Sync', description: 'Worker status and run history' },
+  { key: 'agents', label: 'Agents', description: 'Prompt and hosted agent inventory' },
 ]
 
 function renderRoute(route: RouteKey) {
@@ -30,6 +32,8 @@ function renderRoute(route: RouteKey) {
       return <Reports />
     case 'sync':
       return <Sync />
+    case 'agents':
+      return <Agents />
   }
 }
 
