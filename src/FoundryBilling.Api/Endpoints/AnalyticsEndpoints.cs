@@ -172,45 +172,40 @@ public static class AnalyticsEndpoints
 
         var slices = await dbContext.UsageMetricSlices
             .AsNoTracking()
-            .Join(
-                dbContext.ModelDeployments.AsNoTracking(),
-                slice => slice.DeploymentId,
-                deployment => deployment.Id,
-                (slice, deployment) => new
-                {
-                    slice.DeploymentId,
-                    slice.Timestamp,
-                    slice.IntervalMinutes,
-                    slice.PromptTokens,
-                    slice.CompletionTokens,
-                    slice.TotalTokens,
-                    deployment.DeploymentName,
-                    deployment.ModelName,
-                    deployment.HubId
-                })
-            .Join(
-                dbContext.FoundryHubs.AsNoTracking(),
-                slice => slice.HubId,
-                hub => hub.Id,
-                (slice, hub) => new UsageSliceRow(
-                    slice.DeploymentId,
-                    slice.DeploymentName,
-                    slice.ModelName,
-                    hub.Name,
-                    slice.Timestamp,
-                    slice.IntervalMinutes,
-                    slice.PromptTokens,
-                    slice.CompletionTokens,
-                    slice.TotalTokens))
             .Where(slice => slice.Timestamp >= windowStart && slice.Timestamp <= windowEnd)
+            .Select(slice => new
+            {
+                slice.DeploymentId,
+                slice.Timestamp,
+                slice.IntervalMinutes,
+                slice.PromptTokens,
+                slice.CompletionTokens,
+                slice.TotalTokens,
+                slice.Deployment.DeploymentName,
+                slice.Deployment.ModelName,
+                slice.Deployment.Hub.Name
+            })
             .ToListAsync(cancellationToken);
+
+        var mappedSlices = slices
+            .Select(s => new UsageSliceRow(
+                s.DeploymentId,
+                s.DeploymentName,
+                s.ModelName,
+                s.Name,
+                s.Timestamp,
+                s.IntervalMinutes,
+                s.PromptTokens,
+                s.CompletionTokens,
+                s.TotalTokens))
+            .ToList();
 
         return new UsageWindowData(
             days,
             windowStart,
             windowEnd,
             Math.Max(1, (int)Math.Ceiling((windowEnd - windowStart).TotalMinutes)),
-            slices);
+            mappedSlices);
     }
 
     private static IReadOnlyList<ModelPtuCalculationInput> BuildModelTpmInputs(UsageWindowData windowData)
