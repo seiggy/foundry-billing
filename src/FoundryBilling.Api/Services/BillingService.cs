@@ -61,15 +61,22 @@ public sealed class BillingService(BillingDbContext dbContext, ILogger<BillingSe
             })
             .SingleOrDefaultAsync(cancellationToken);
 
-        var byModel = await metrics
-            .GroupBy(metric => metric.Deployment.ModelName)
+        var byModel = await dbContext.UsageMetricSlices
+            .AsNoTracking()
+            .Join(dbContext.ModelDeployments,
+                slice => slice.DeploymentId,
+                deployment => deployment.Id,
+                (slice, deployment) => new { slice, deployment })
+            .Where(x => startDate == null || x.slice.Timestamp >= new DateTimeOffset(startDate.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero))
+            .Where(x => endDate == null || x.slice.Timestamp < new DateTimeOffset(endDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero))
+            .GroupBy(x => x.deployment.ModelName)
             .Select(group => new ModelUsageBreakdown(
                 group.Key,
-                group.Sum(metric => metric.PromptTokens),
-                group.Sum(metric => metric.CompletionTokens),
-                group.Sum(metric => metric.TotalTokens)))
-            .OrderByDescending(group => group.TotalTokens)
-            .ThenBy(group => group.ModelName)
+                group.Sum(x => x.slice.PromptTokens),
+                group.Sum(x => x.slice.CompletionTokens),
+                group.Sum(x => x.slice.TotalTokens)))
+            .OrderByDescending(x => x.TotalTokens)
+            .ThenBy(x => x.ModelName)
             .ToListAsync(cancellationToken);
 
         return new UsageSummaryResponse(
