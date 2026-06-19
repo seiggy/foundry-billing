@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using Azure.Core;
 using Azure.Identity;
+using Azure.Monitor.Query;
 using Azure.ResourceManager;
 using Microsoft.Extensions.Options;
 
@@ -13,6 +14,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFoundryBillingInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<AzureBillingOptions>(configuration.GetSection(AzureBillingOptions.SectionName));
+        services.Configure<SyncOptions>(configuration.GetSection(SyncOptions.SectionName));
 
         services.AddSingleton<DefaultAzureCredential>();
         services.AddSingleton<TokenCredential>(serviceProvider => serviceProvider.GetRequiredService<DefaultAzureCredential>());
@@ -31,6 +33,12 @@ public static class ServiceCollectionExtensions
             var options = serviceProvider.GetRequiredService<IOptions<AzureBillingOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementBaseUrl);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        });
+
+        services.AddSingleton(serviceProvider =>
+        {
+            var credential = serviceProvider.GetRequiredService<TokenCredential>();
+            return new MetricsQueryClient(credential);
         });
 
         return services;

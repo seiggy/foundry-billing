@@ -1,3 +1,6 @@
+using FoundryBilling.Api.Services.Sync;
+using FoundryBilling.Api.Workers;
+
 namespace FoundryBilling.Api.Services;
 
 public static class ServiceCollectionExtensions
@@ -6,6 +9,9 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IProjectService, ProjectService>();
+        services.AddScoped<IFoundryDiscoveryService, FoundryDiscoveryService>();
+        services.AddScoped<IMetricsSyncService, MetricsSyncService>();
+        services.AddHostedService<MetricsSyncWorker>();
 
         return services;
     }
