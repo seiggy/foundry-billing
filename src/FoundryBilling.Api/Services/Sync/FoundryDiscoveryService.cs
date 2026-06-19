@@ -207,7 +207,14 @@ public sealed class FoundryDiscoveryService : IFoundryDiscoveryService
     }
 
     private static Uri CreateProjectEndpoint(string hubName, string projectName)
-        => new($"https://{hubName}.services.ai.azure.com/api/projects/{Uri.EscapeDataString(projectName)}");
+    {
+        // projectName may be in ARM format "accountName/projectName" — extract just the project portion
+        var actualProjectName = projectName.Contains('/')
+            ? projectName.Split('/').Last()
+            : projectName;
+
+        return new($"https://{hubName}.services.ai.azure.com/api/projects/{Uri.EscapeDataString(actualProjectName)}");
+    }
 
     private static string? GetAgentKind(ProjectsAgentDefinition? definition)
         => definition switch
