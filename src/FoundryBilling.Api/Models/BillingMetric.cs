@@ -1,12 +1,11 @@
 namespace FoundryBilling.Api.Models;
 
-public sealed record BillingMetric(
-    string TenantId,
-    string SubscriptionId,
-    string ProjectId,
-    string ProjectName,
-    string ResourceGroupName,
-    string ResourceName,
-    decimal Cost,
-    string Currency,
-    DateOnly UsageDate);
+public sealed record BillingMetricResponse(
+    string DeploymentName,
+    string ModelName,
+    string? ModelVersion,
+    string HubName,
+    DateTimeOffset Timestamp,
+    long PromptTokens,
+    long CompletionTokens,
+    long TotalTokens);

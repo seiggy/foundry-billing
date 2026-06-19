@@ -5,11 +5,11 @@ namespace FoundryBilling.Api.Tests.Models;
 
 public sealed class BillingMetricTests
 {
-    private const string BillingMetricTypeName = "FoundryBilling.Api.Models.BillingMetric";
+    private const string BillingMetricTypeName = "FoundryBilling.Api.Models.BillingMetricResponse";
     private static readonly Assembly ApiAssembly = typeof(global::Program).Assembly;
 
     [Fact]
-    public void BillingMetric_can_be_created_with_its_simplest_public_constructor_when_available()
+    public void BillingMetricResponse_can_be_created_with_its_simplest_public_constructor_when_available()
     {
         var billingMetricType = ApiAssembly.GetType(BillingMetricTypeName);
         if (billingMetricType is null)
@@ -23,7 +23,7 @@ public sealed class BillingMetricTests
     }
 
     [Fact]
-    public void BillingMetric_public_properties_are_readable_when_the_model_is_available()
+    public void BillingMetricResponse_public_properties_are_readable_when_the_model_is_available()
     {
         var billingMetricType = ApiAssembly.GetType(BillingMetricTypeName);
         if (billingMetricType is null)

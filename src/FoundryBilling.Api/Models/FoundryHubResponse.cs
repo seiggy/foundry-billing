@@ -1,8 +1,10 @@
 namespace FoundryBilling.Api.Models;
 
-public sealed record FoundryProjectResponse(
+public sealed record FoundryHubResponse(
     Guid Id,
     string Name,
-    string HubName,
     string Region,
+    string SubscriptionId,
+    int DeploymentCount,
+    int ProjectCount,
     DateTimeOffset? LastSyncedAt);

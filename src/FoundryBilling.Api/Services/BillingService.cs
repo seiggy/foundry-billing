@@ -1,70 +1,108 @@
-using Azure.ResourceManager;
+using FoundryBilling.Api.Data;
+using FoundryBilling.Api.Data.Entities;
 using FoundryBilling.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace FoundryBilling.Api.Services;
 
-public sealed class BillingService : IBillingService
+public sealed class BillingService(BillingDbContext dbContext, ILogger<BillingService> logger) : IBillingService
 {
-    private readonly ArmClient _armClient;
-    private readonly IProjectService _projectService;
-    private readonly ILogger<BillingService> _logger;
-
-    public BillingService(ArmClient armClient, IProjectService projectService, ILogger<BillingService> logger)
-    {
-        _armClient = armClient;
-        _projectService = projectService;
-        _logger = logger;
-    }
-
-    public Task<IReadOnlyList<BillingMetric>> GetBillingMetricsAsync(
-        BillingMetricsQuery query,
+    public async Task<IReadOnlyList<BillingMetricResponse>> GetBillingMetricsAsync(
+        DateOnly? startDate,
+        DateOnly? endDate,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "Returning placeholder billing metrics for tenant {TenantId} and project {ProjectId} using {ClientType}.",
-            query.TenantId,
-            query.ProjectId,
-            _armClient.GetType().Name);
+        logger.LogInformation(
+            "Querying usage metric slices for billing metrics with start date {StartDate} and end date {EndDate}.",
+            startDate,
+            endDate);
 
-        IReadOnlyList<BillingMetric> metrics = Array.Empty<BillingMetric>();
-        return Task.FromResult(metrics);
+        return await ApplyDateRange(dbContext.UsageMetricSlices.AsNoTracking(), startDate, endDate)
+            .OrderBy(metric => metric.Timestamp)
+            .ThenBy(metric => metric.Deployment.Hub.Name)
+            .ThenBy(metric => metric.Deployment.DeploymentName)
+            .Select(metric => new BillingMetricResponse(
+                metric.Deployment.DeploymentName,
+                metric.Deployment.ModelName,
+                metric.Deployment.ModelVersion,
+                metric.Deployment.Hub.Name,
+                metric.Timestamp,
+                metric.PromptTokens,
+                metric.CompletionTokens,
+                metric.TotalTokens))
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<UsageSummary> GetUsageSummaryAsync(
-        UsageSummaryQuery query,
+    public async Task<UsageSummaryResponse> GetUsageSummaryAsync(
+        DateOnly? startDate,
+        DateOnly? endDate,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "Returning placeholder usage summary for tenant {TenantId} and project {ProjectId} using {ClientType}.",
-            query.TenantId,
-            query.ProjectId,
-            _armClient.GetType().Name);
+        logger.LogInformation(
+            "Querying usage summary with start date {StartDate} and end date {EndDate}.",
+            startDate,
+            endDate);
 
-        var projectCount = await GetProjectCountAsync(query, cancellationToken);
+        var hubCount = await dbContext.FoundryHubs.AsNoTracking().CountAsync(cancellationToken);
+        var projectCount = await dbContext.FoundryProjects.AsNoTracking().CountAsync(cancellationToken);
+        var deploymentCount = await dbContext.ModelDeployments.AsNoTracking().CountAsync(cancellationToken);
 
-        return new UsageSummary(
-            query.TenantId,
-            query.ProjectId,
-            query.StartDate,
-            query.EndDate,
-            "USD",
-            0m,
-            0,
-            projectCount);
+        var metrics = ApplyDateRange(dbContext.UsageMetricSlices.AsNoTracking(), startDate, endDate);
+
+        var aggregate = await metrics
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                TotalPromptTokens = group.Sum(metric => metric.PromptTokens),
+                TotalCompletionTokens = group.Sum(metric => metric.CompletionTokens),
+                TotalTokens = group.Sum(metric => metric.TotalTokens),
+                OldestMetric = (DateTimeOffset?)group.Min(metric => metric.Timestamp),
+                NewestMetric = (DateTimeOffset?)group.Max(metric => metric.Timestamp)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var byModel = await metrics
+            .GroupBy(metric => metric.Deployment.ModelName)
+            .Select(group => new ModelUsageBreakdown(
+                group.Key,
+                group.Sum(metric => metric.PromptTokens),
+                group.Sum(metric => metric.CompletionTokens),
+                group.Sum(metric => metric.TotalTokens)))
+            .OrderByDescending(group => group.TotalTokens)
+            .ThenBy(group => group.ModelName)
+            .ToListAsync(cancellationToken);
+
+        return new UsageSummaryResponse(
+            hubCount,
+            projectCount,
+            deploymentCount,
+            aggregate?.TotalPromptTokens ?? 0,
+            aggregate?.TotalCompletionTokens ?? 0,
+            aggregate?.TotalTokens ?? 0,
+            aggregate?.OldestMetric,
+            aggregate?.NewestMetric,
+            byModel);
     }
 
-    private async Task<int> GetProjectCountAsync(UsageSummaryQuery query, CancellationToken cancellationToken)
+    private static IQueryable<UsageMetricSlice> ApplyDateRange(
+        IQueryable<UsageMetricSlice> query,
+        DateOnly? startDate,
+        DateOnly? endDate)
     {
-        if (!string.IsNullOrWhiteSpace(query.ProjectId))
+        if (startDate.HasValue)
         {
-            var project = await _projectService.GetProjectAsync(
-                new FoundryProjectLookup(query.TenantId, query.ProjectId),
-                cancellationToken);
-
-            return project is null ? 0 : 1;
+            var startInclusive = new DateTimeOffset(
+                DateTime.SpecifyKind(startDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc));
+            query = query.Where(metric => metric.Timestamp >= startInclusive);
         }
 
-        var projects = await _projectService.GetProjectsAsync(new FoundryProjectsQuery(query.TenantId), cancellationToken);
-        return projects.Count;
+        if (endDate.HasValue)
+        {
+            var endExclusive = new DateTimeOffset(
+                DateTime.SpecifyKind(endDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc));
+            query = query.Where(metric => metric.Timestamp < endExclusive);
+        }
+
+        return query;
     }
 }

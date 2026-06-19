@@ -4,11 +4,10 @@ namespace FoundryBilling.Api.Services;
 
 public interface IProjectService
 {
-    Task<IReadOnlyList<FoundryProject>> GetProjectsAsync(
-        FoundryProjectsQuery query,
+    Task<IReadOnlyList<FoundryProjectResponse>> GetProjectsAsync(
         CancellationToken cancellationToken = default);
 
-    Task<FoundryProject?> GetProjectAsync(
-        FoundryProjectLookup lookup,
+    Task<FoundryProjectResponse?> GetProjectAsync(
+        Guid projectId,
         CancellationToken cancellationToken = default);
 }

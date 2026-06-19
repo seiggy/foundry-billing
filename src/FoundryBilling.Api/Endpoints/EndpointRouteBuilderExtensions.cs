@@ -7,6 +7,8 @@ public static class EndpointRouteBuilderExtensions
         var api = app.MapGroup("/api");
 
         api.MapBillingEndpoints();
+        api.MapHubEndpoints();
+        api.MapDeploymentEndpoints();
         api.MapProjectEndpoints();
 
         return app;

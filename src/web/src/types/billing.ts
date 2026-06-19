@@ -1,35 +1,57 @@
 export interface BillingMetric {
+  deploymentName: string
+  modelName: string
+  modelVersion: string | null
+  hubName: string
+  timestamp: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+export interface UsageSummary {
+  hubCount: number
+  projectCount: number
+  deploymentCount: number
+  totalPromptTokens: number
+  totalCompletionTokens: number
+  totalTokens: number
+  oldestMetric: string | null
+  newestMetric: string | null
+  byModel: ModelUsageBreakdown[]
+}
+
+export interface ModelUsageBreakdown {
+  modelName: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+export interface FoundryHub {
   id: string
-  projectId: string
-  projectName: string
-  category: string
   name: string
-  value: number
-  unit: string
-  cost: number
-  currency: string
-  recordedAt: string
+  region: string
+  subscriptionId: string
+  deploymentCount: number
+  projectCount: number
+  lastSyncedAt: string | null
+}
+
+export interface Deployment {
+  id: string
+  deploymentName: string
+  modelName: string
+  modelVersion: string | null
+  hubName: string
+  totalTokensLast24h: number
+  lastMetricAt: string | null
 }
 
 export interface FoundryProject {
   id: string
   name: string
-  owner: string
+  hubName: string
   region: string
-  environment: string
-  status: 'healthy' | 'watch' | 'critical'
-  totalCost: number
-  currency: string
-  lastUpdated: string
-}
-
-export interface UsageSummary {
-  tenantId: string
-  windowStart: string
-  windowEnd: string
-  totalCost: number
-  currency: string
-  projectCount: number
-  metrics: BillingMetric[]
-  projects: FoundryProject[]
+  lastSyncedAt: string | null
 }

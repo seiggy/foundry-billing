@@ -13,48 +13,29 @@ public static class ProjectEndpoints
 
         projects.MapGet(string.Empty, GetProjectsAsync)
             .WithName("GetProjects")
-            .WithSummary("Gets Foundry projects for a tenant.");
+            .WithSummary("Gets synced Foundry projects.");
 
         projects.MapGet("/{projectId}", GetProjectAsync)
             .WithName("GetProject")
-            .WithSummary("Gets a single Foundry project for a tenant.");
+            .WithSummary("Gets a single synced Foundry project.");
 
         return group;
     }
 
-    private static async Task<Results<Ok<IReadOnlyList<FoundryProject>>, ValidationProblem>> GetProjectsAsync(
-        string tenantId,
+    private static async Task<Ok<IReadOnlyList<FoundryProjectResponse>>> GetProjectsAsync(
         IProjectService projectService,
         CancellationToken cancellationToken)
     {
-        var errors = EndpointValidation.ValidateTenant(tenantId);
-        if (errors.Count > 0)
-        {
-            return TypedResults.ValidationProblem(errors);
-        }
-
-        var projects = await projectService.GetProjectsAsync(new FoundryProjectsQuery(tenantId), cancellationToken);
+        var projects = await projectService.GetProjectsAsync(cancellationToken);
         return TypedResults.Ok(projects);
     }
 
-    private static async Task<Results<Ok<FoundryProject>, NotFound, ValidationProblem>> GetProjectAsync(
-        string tenantId,
-        string projectId,
+    private static async Task<Results<Ok<FoundryProjectResponse>, NotFound>> GetProjectAsync(
+        Guid projectId,
         IProjectService projectService,
         CancellationToken cancellationToken)
     {
-        var errors = EndpointValidation.ValidateTenant(tenantId);
-        if (string.IsNullOrWhiteSpace(projectId))
-        {
-            errors["projectId"] = ["The projectId route parameter is required."];
-        }
-
-        if (errors.Count > 0)
-        {
-            return TypedResults.ValidationProblem(errors);
-        }
-
-        var project = await projectService.GetProjectAsync(new FoundryProjectLookup(tenantId, projectId), cancellationToken);
+        var project = await projectService.GetProjectAsync(projectId, cancellationToken);
         return project is null ? TypedResults.NotFound() : TypedResults.Ok(project);
     }
 }

@@ -13,9 +13,9 @@ const navigation: ReadonlyArray<{
   label: string
   description: string
 }> = [
-  { key: 'dashboard', label: 'Dashboard', description: 'Tenant-wide cost signals' },
-  { key: 'projects', label: 'Projects', description: 'Project coverage and owners' },
-  { key: 'reports', label: 'Reports', description: 'Scheduled exports and audits' },
+  { key: 'dashboard', label: 'Dashboard', description: 'Live token flow' },
+  { key: 'projects', label: 'Projects', description: 'Hub and project inventory' },
+  { key: 'reports', label: 'Reports', description: 'Deployment usage in the last 24h' },
 ]
 
 function renderRoute(route: RouteKey) {
@@ -37,9 +37,9 @@ function App() {
       <header className="app-header">
         <div>
           <p className="app-kicker">Foundry Billing</p>
-          <h1>Tenant billing observability</h1>
+          <h1>Billing monitor</h1>
           <p className="app-summary">
-            Frontend scaffold for billing metrics, project drill-in, and reporting views.
+            Live inventory and token usage from the API across hubs, projects, and deployments.
           </p>
         </div>
         <div className="app-meta">

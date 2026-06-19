@@ -1,4 +1,10 @@
-import type { BillingMetric, FoundryProject, UsageSummary } from '../types/billing'
+import type {
+  BillingMetric,
+  Deployment,
+  FoundryHub,
+  FoundryProject,
+  UsageSummary,
+} from '../types/billing'
 
 const API_ROOT = '/api'
 
@@ -63,7 +69,14 @@ export async function apiFetch<T>(
 }
 
 export const billingClient = {
-  getMetrics: () => apiFetch<BillingMetric[]>('/billing/metrics'),
-  getProjects: () => apiFetch<FoundryProject[]>('/billing/projects'),
-  getUsageSummary: () => apiFetch<UsageSummary>('/billing/summary'),
+  getMetrics: () => apiFetch<BillingMetric[]>('/api/billing/metrics'),
+  getSummary: () => apiFetch<UsageSummary>('/api/billing/summary'),
+  getHubs: () => apiFetch<FoundryHub[]>('/api/hubs'),
+  getDeployments: (hubId?: string) =>
+    apiFetch<Deployment[]>(
+      hubId
+        ? `/api/deployments?hubId=${encodeURIComponent(hubId)}`
+        : '/api/deployments',
+    ),
+  getProjects: () => apiFetch<FoundryProject[]>('/api/projects'),
 }

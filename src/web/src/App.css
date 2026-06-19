@@ -40,6 +40,32 @@
   color: var(--text-h);
 }
 
+.action-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  background: var(--panel-muted);
+  color: var(--text-h);
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.action-button:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.action-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+  transform: none;
+}
+
 .view-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -242,10 +268,26 @@
   font-size: 0.9rem;
 }
 
+.item-note {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.mono {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SFMono-Regular,
+    Consolas,
+    'Liberation Mono',
+    Menlo,
+    monospace;
 }
 
 .tag-row {

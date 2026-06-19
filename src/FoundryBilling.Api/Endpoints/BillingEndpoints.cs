@@ -13,51 +13,45 @@ public static class BillingEndpoints
 
         billing.MapGet("/metrics", GetBillingMetricsAsync)
             .WithName("GetBillingMetrics")
-            .WithSummary("Gets billing metrics for a tenant or project.");
+            .WithSummary("Gets synced token usage metrics.");
 
         billing.MapGet("/summary", GetUsageSummaryAsync)
             .WithName("GetUsageSummary")
-            .WithSummary("Gets an aggregated billing summary for a tenant or project.");
+            .WithSummary("Gets an aggregated synced token usage summary.");
 
         return group;
     }
 
-    private static async Task<Results<Ok<IReadOnlyList<BillingMetric>>, ValidationProblem>> GetBillingMetricsAsync(
-        string tenantId,
-        string? projectId,
+    private static async Task<Results<Ok<IReadOnlyList<BillingMetricResponse>>, ValidationProblem>> GetBillingMetricsAsync(
         DateOnly? startDate,
         DateOnly? endDate,
         IBillingService billingService,
         CancellationToken cancellationToken)
     {
-        var errors = EndpointValidation.ValidateTenantAndDateRange(tenantId, startDate, endDate);
+        var errors = EndpointValidation.ValidateDateRange(startDate, endDate);
         if (errors.Count > 0)
         {
             return TypedResults.ValidationProblem(errors);
         }
 
-        var query = new BillingMetricsQuery(tenantId, projectId, startDate, endDate);
-        var metrics = await billingService.GetBillingMetricsAsync(query, cancellationToken);
+        var metrics = await billingService.GetBillingMetricsAsync(startDate, endDate, cancellationToken);
 
         return TypedResults.Ok(metrics);
     }
 
-    private static async Task<Results<Ok<UsageSummary>, ValidationProblem>> GetUsageSummaryAsync(
-        string tenantId,
-        string? projectId,
+    private static async Task<Results<Ok<UsageSummaryResponse>, ValidationProblem>> GetUsageSummaryAsync(
         DateOnly? startDate,
         DateOnly? endDate,
         IBillingService billingService,
         CancellationToken cancellationToken)
     {
-        var errors = EndpointValidation.ValidateTenantAndDateRange(tenantId, startDate, endDate);
+        var errors = EndpointValidation.ValidateDateRange(startDate, endDate);
         if (errors.Count > 0)
         {
             return TypedResults.ValidationProblem(errors);
         }
 
-        var query = new UsageSummaryQuery(tenantId, projectId, startDate, endDate);
-        var summary = await billingService.GetUsageSummaryAsync(query, cancellationToken);
+        var summary = await billingService.GetUsageSummaryAsync(startDate, endDate, cancellationToken);
 
         return TypedResults.Ok(summary);
     }

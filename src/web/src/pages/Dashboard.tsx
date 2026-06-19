@@ -1,191 +1,210 @@
+import { useCallback } from 'react'
+import { billingClient } from '../api/client'
 import { Panel } from '../components/Panel'
-import type { BillingMetric, FoundryProject, UsageSummary } from '../types/billing'
+import { useApi } from '../hooks/useApi'
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
+const compactNumberFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
 })
 
 const numberFormatter = new Intl.NumberFormat('en-US')
 
-const recentMetrics: BillingMetric[] = [
-  {
-    id: 'metric-gpt4o-input',
-    projectId: 'proj-chatops',
-    projectName: 'ChatOps',
-    category: 'tokens',
-    name: 'GPT-4o input tokens',
-    value: 1824000,
-    unit: 'tokens',
-    cost: 4120,
-    currency: 'USD',
-    recordedAt: '2026-06-18T14:00:00Z',
-  },
-  {
-    id: 'metric-embeddings',
-    projectId: 'proj-search',
-    projectName: 'Vector Search',
-    category: 'requests',
-    name: 'Embedding refresh',
-    value: 18200,
-    unit: 'requests',
-    cost: 1680,
-    currency: 'USD',
-    recordedAt: '2026-06-18T12:30:00Z',
-  },
-  {
-    id: 'metric-reasoning',
-    projectId: 'proj-finops',
-    projectName: 'FinOps Analyst',
-    category: 'tokens',
-    name: 'Reasoning burst',
-    value: 968000,
-    unit: 'tokens',
-    cost: 990,
-    currency: 'USD',
-    recordedAt: '2026-06-18T09:15:00Z',
-  },
-]
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
 
-const trackedProjects: FoundryProject[] = [
-  {
-    id: 'proj-chatops',
-    name: 'ChatOps',
-    owner: 'Support Engineering',
-    region: 'eastus2',
-    environment: 'production',
-    status: 'healthy',
-    totalCost: 7520,
-    currency: 'USD',
-    lastUpdated: '2026-06-18T14:00:00Z',
-  },
-  {
-    id: 'proj-search',
-    name: 'Vector Search',
-    owner: 'Search Platform',
-    region: 'westus3',
-    environment: 'production',
-    status: 'healthy',
-    totalCost: 6240,
-    currency: 'USD',
-    lastUpdated: '2026-06-18T12:30:00Z',
-  },
-  {
-    id: 'proj-finops',
-    name: 'FinOps Analyst',
-    owner: 'Finance Systems',
-    region: 'centralus',
-    environment: 'staging',
-    status: 'watch',
-    totalCost: 4660,
-    currency: 'USD',
-    lastUpdated: '2026-06-18T09:15:00Z',
-  },
-]
-
-const summary: UsageSummary = {
-  tenantId: 'tenant-primary',
-  windowStart: '2026-06-01T00:00:00Z',
-  windowEnd: '2026-06-30T23:59:59Z',
-  totalCost: 18420,
-  currency: 'USD',
-  projectCount: trackedProjects.length,
-  metrics: recentMetrics,
-  projects: trackedProjects,
+function formatTokenCount(value: number) {
+  return `${compactNumberFormatter.format(value)} tokens`
 }
 
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(date))
+function formatExactTokens(value: number) {
+  return `${numberFormatter.format(value)} tokens`
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return 'No data yet'
+  }
+
+  return dateTimeFormatter.format(new Date(value))
+}
+
+function formatModelLabel(modelName: string, modelVersion: string | null) {
+  return modelVersion ? `${modelName} · ${modelVersion}` : modelName
 }
 
 export function Dashboard() {
+  const summaryRequest = useCallback(() => billingClient.getSummary(), [])
+  const metricsRequest = useCallback(() => billingClient.getMetrics(), [])
+
+  const {
+    data: summary,
+    loading: summaryLoading,
+    error: summaryError,
+    refresh: refreshSummary,
+  } = useApi(summaryRequest)
+  const {
+    data: metrics,
+    loading: metricsLoading,
+    error: metricsError,
+    refresh: refreshMetrics,
+  } = useApi(metricsRequest)
+
+  const refreshAll = () => {
+    refreshSummary()
+    refreshMetrics()
+  }
+
+  const recentMetrics = [...(metrics ?? [])]
+    .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp))
+    .slice(0, 8)
+  const models = [...(summary?.byModel ?? [])].sort(
+    (left, right) => right.totalTokens - left.totalTokens,
+  )
+  const errorMessage = summaryError ?? metricsError
+  const isLoading = (summaryLoading && !summary) || (metricsLoading && !metrics)
+
+  if (isLoading) {
+    return (
+      <section className="page">
+        <header className="page-header">
+          <div>
+            <p className="page-eyebrow">Dashboard</p>
+            <h2 className="page-title">Live token activity</h2>
+          </div>
+          <p className="page-note">Loading usage summary and metric stream…</p>
+        </header>
+      </section>
+    )
+  }
+
   return (
     <section className="page">
       <header className="page-header">
         <div>
           <p className="page-eyebrow">Dashboard</p>
-          <h2 className="page-title">Current billing window</h2>
+          <h2 className="page-title">Live token activity</h2>
         </div>
         <p className="page-note">
-          {summary.tenantId}
+          Window start: {formatDateTime(summary?.oldestMetric ?? null)}
           <br />
-          Jun 1 – Jun 30
+          Latest metric: {formatDateTime(summary?.newestMetric ?? null)}
         </p>
       </header>
 
+      {errorMessage ? (
+        <Panel
+          title="Live feed issue"
+          subtitle={errorMessage}
+          aside={
+            <button type="button" className="action-button" onClick={refreshAll}>
+              Retry
+            </button>
+          }
+        >
+          <div className="empty-state">
+            <p>Showing the last successful payload where possible.</p>
+          </div>
+        </Panel>
+      ) : null}
+
       <section className="summary-grid" aria-label="Usage summary">
         <article className="summary-card">
-          <span className="summary-card-label">Total spend</span>
+          <span className="summary-card-label">Total tokens</span>
           <strong className="summary-card-value">
-            {currencyFormatter.format(summary.totalCost)}
+            {formatTokenCount(summary?.totalTokens ?? 0)}
           </strong>
-          <p className="summary-card-detail">Across {summary.projectCount} tracked projects.</p>
+          <p className="summary-card-detail">{formatExactTokens(summary?.totalTokens ?? 0)}</p>
         </article>
         <article className="summary-card">
-          <span className="summary-card-label">Recent metrics</span>
+          <span className="summary-card-label">Prompt / completion</span>
           <strong className="summary-card-value">
-            {numberFormatter.format(summary.metrics.length)}
+            {compactNumberFormatter.format(summary?.totalPromptTokens ?? 0)}
           </strong>
-          <p className="summary-card-detail">Latest observations ready for charts and drill-in.</p>
+          <p className="summary-card-detail">
+            Prompt tokens
+            <br />
+            {formatExactTokens(summary?.totalCompletionTokens ?? 0)} completion
+          </p>
         </article>
         <article className="summary-card">
-          <span className="summary-card-label">Projects in focus</span>
-          <strong className="summary-card-value">
-            {trackedProjects.filter((project) => project.status !== 'healthy').length}
-          </strong>
-          <p className="summary-card-detail">Projects that may need budget or usage review.</p>
+          <span className="summary-card-label">Observed surface</span>
+          <strong className="summary-card-value">{summary?.deploymentCount ?? 0}</strong>
+          <p className="summary-card-detail">
+            deployments across {summary?.hubCount ?? 0} hubs and {summary?.projectCount ?? 0}{' '}
+            projects
+          </p>
         </article>
       </section>
 
       <div className="page-grid">
         <Panel
-          title="Recent cost signals"
-          subtitle="Starter structure for the metrics feed coming from /api/billing/metrics."
+          title="Model breakdown"
+          subtitle="Sorted by total token volume across the captured window."
+          aside={
+            <button type="button" className="action-button" onClick={refreshAll}>
+              Refresh
+            </button>
+          }
         >
-          <ul className="metric-list">
-            {recentMetrics.map((metric) => (
-              <li key={metric.id} className="metric-item">
-                <div className="item-headline">
-                  <span className="item-title">{metric.name}</span>
-                  <span className="item-value">{currencyFormatter.format(metric.cost)}</span>
-                </div>
-                <div className="item-meta">
-                  <span>{metric.projectName}</span>
-                  <span>
-                    {numberFormatter.format(metric.value)} {metric.unit}
-                  </span>
-                  <span>{formatDate(metric.recordedAt)}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {models.length === 0 ? (
+            <div className="empty-state">
+              <p>No model usage has been reported yet.</p>
+            </div>
+          ) : (
+            <ul className="project-list">
+              {models.map((model) => (
+                <li key={model.modelName} className="project-item">
+                  <div className="item-headline">
+                    <span className="item-title">{model.modelName}</span>
+                    <span className="item-value">{formatTokenCount(model.totalTokens)}</span>
+                  </div>
+                  <div className="item-meta">
+                    <span>Prompt: {formatExactTokens(model.promptTokens)}</span>
+                    <span>Completion: {formatExactTokens(model.completionTokens)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </Panel>
 
         <Panel
-          title="Project coverage"
-          subtitle="Placeholder layout for the first tenant-wide project overview."
+          title="Deployment activity"
+          subtitle="Most recent usage slices from the billing metrics feed."
         >
-          <ul className="project-list">
-            {trackedProjects.map((project) => (
-              <li key={project.id} className="project-item">
-                <div className="item-headline">
-                  <span className="item-title">{project.name}</span>
-                  <span className="item-value">{currencyFormatter.format(project.totalCost)}</span>
-                </div>
-                <div className="item-meta">
-                  <span>{project.owner}</span>
-                  <span>{project.region}</span>
-                  <span>{project.environment}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {recentMetrics.length === 0 ? (
+            <div className="empty-state">
+              <p>No deployment activity has been recorded yet.</p>
+            </div>
+          ) : (
+            <ul className="metric-list">
+              {recentMetrics.map((metric) => (
+                <li
+                  key={`${metric.deploymentName}-${metric.timestamp}-${metric.modelName}`}
+                  className="metric-item"
+                >
+                  <div className="item-headline">
+                    <span className="item-title">{metric.deploymentName}</span>
+                    <span className="item-value">{formatTokenCount(metric.totalTokens)}</span>
+                  </div>
+                  <div className="item-meta">
+                    <span>{formatModelLabel(metric.modelName, metric.modelVersion)}</span>
+                    <span>{metric.hubName}</span>
+                    <span>{formatDateTime(metric.timestamp)}</span>
+                  </div>
+                  <p className="item-note">
+                    Prompt {formatExactTokens(metric.promptTokens)} · Completion{' '}
+                    {formatExactTokens(metric.completionTokens)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </Panel>
       </div>
     </section>

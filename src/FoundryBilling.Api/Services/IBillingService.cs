@@ -4,11 +4,13 @@ namespace FoundryBilling.Api.Services;
 
 public interface IBillingService
 {
-    Task<IReadOnlyList<BillingMetric>> GetBillingMetricsAsync(
-        BillingMetricsQuery query,
+    Task<IReadOnlyList<BillingMetricResponse>> GetBillingMetricsAsync(
+        DateOnly? startDate,
+        DateOnly? endDate,
         CancellationToken cancellationToken = default);
 
-    Task<UsageSummary> GetUsageSummaryAsync(
-        UsageSummaryQuery query,
+    Task<UsageSummaryResponse> GetUsageSummaryAsync(
+        DateOnly? startDate,
+        DateOnly? endDate,
         CancellationToken cancellationToken = default);
 }
