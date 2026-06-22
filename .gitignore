@@ -18,6 +18,12 @@ Thumbs.db
 # Aspire
 .aspire/
 
+# Terraform
+infra/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
 # Squad: ignore runtime state (logs, inbox, sessions)
 .squad/orchestration-log/
 .squad/log/

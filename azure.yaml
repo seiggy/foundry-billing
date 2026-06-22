@@ -1,0 +1,13 @@
+name: foundry-billing
+metadata:
+  template: foundry-billing
+infra:
+  provider: terraform
+  path: ./infra
+hooks:
+  preprovision:
+    shell: sh
+    run: echo "Provisioning Azure resources with Terraform..."
+  postprovision:
+    shell: sh
+    run: echo "Provisioning complete."
