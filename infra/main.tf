@@ -22,16 +22,14 @@ locals {
 
   postgres_database_name  = "foundry-billing"
   postgres_admin_username = "fbadmin"
-  api_image               = "ghcr.io/seiggy/foundry-billing-api:latest"
-  web_image               = "ghcr.io/seiggy/foundry-billing-web:latest"
+  api_image               = "ghcr.io/seiggy/foundry-billing:latest"
   resource_group_name     = "rg-fb-${local.name_suffix}"
   log_analytics_name      = "log-fb-${local.name_suffix}"
   container_env_name      = "cae-fb-${local.name_suffix}"
   postgres_server_name    = "psql-fb-${local.name_suffix}"
   key_vault_name          = substr("kvfb${local.env_compact}${random_string.resource_suffix.result}", 0, 24)
   api_identity_name       = "id-fb-${local.name_suffix}-api"
-  api_container_app_name  = "ca-fb-${local.name_suffix}-api"
-  web_container_app_name  = "ca-fb-${local.name_suffix}-web"
+  api_container_app_name  = "ca-fb-${local.name_suffix}"
 }
 
 resource "random_string" "resource_suffix" {

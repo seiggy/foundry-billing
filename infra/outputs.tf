@@ -3,14 +3,9 @@ output "AZURE_RESOURCE_GROUP" {
   description = "Provisioned resource group name."
 }
 
-output "API_URL" {
+output "APP_URL" {
   value       = "https://${azurerm_container_app.api.latest_revision_fqdn}"
-  description = "Public API URL."
-}
-
-output "WEB_URL" {
-  value       = "https://${azurerm_container_app.web.latest_revision_fqdn}"
-  description = "Public web URL."
+  description = "Public application URL (API + frontend served together)."
 }
 
 output "AZURE_KEY_VAULT_NAME" {

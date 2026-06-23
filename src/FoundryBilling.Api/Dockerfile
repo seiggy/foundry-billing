@@ -1,3 +1,10 @@
+FROM node:22-alpine AS frontend
+WORKDIR /web
+COPY src/web/package*.json ./
+RUN npm ci
+COPY src/web/ ./
+RUN npm run build
+
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
@@ -17,6 +24,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 COPY --from=publish /app/publish .
+COPY --from=frontend /web/dist ./wwwroot
 
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080

@@ -40,8 +40,13 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("WebClient");
 
+app.UseStaticFiles();
+
 app.MapDefaultEndpoints();
 app.MapFoundryBillingEndpoints();
+
+// SPA fallback — serve index.html for non-API routes
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
