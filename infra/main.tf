@@ -141,22 +141,10 @@ resource "azapi_resource" "horizondb_cluster" {
   tags = local.tags
 }
 
-resource "azapi_resource" "horizondb_pool" {
-  type      = "Microsoft.HorizonDb/clusters/pools@2026-01-20-preview"
-  name      = local.postgres_database_name
-  parent_id = azapi_resource.horizondb_cluster.id
-
-  schema_validation_enabled = false
-
-  body = {
-    properties = {}
-  }
-}
-
 resource "azapi_resource" "horizondb_firewall_rule" {
-  type      = "Microsoft.HorizonDb/clusters/pools/firewallRules@2026-01-20-preview"
+  type      = "Microsoft.HorizonDb/clusters/firewallRules@2026-01-20-preview"
   name      = "allow-azure-services"
-  parent_id = azapi_resource.horizondb_pool.id
+  parent_id = azapi_resource.horizondb_cluster.id
 
   schema_validation_enabled = false
 
@@ -183,7 +171,7 @@ resource "azurerm_key_vault_secret" "postgres_connection_string" {
 
   depends_on = [
     azurerm_key_vault_access_policy.deployer,
-    azapi_resource.horizondb_pool,
+    azapi_resource.horizondb_cluster,
   ]
 }
 
