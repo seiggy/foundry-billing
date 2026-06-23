@@ -130,6 +130,7 @@ resource "azapi_resource" "horizondb_cluster" {
       administratorLogin         = local.postgres_admin_username
       administratorLoginPassword = random_password.postgres_admin.result
       createMode                 = "Create"
+      version                    = "16"
       vCores                     = 2
       storageSizeInGb            = 32
       highAvailability           = { mode = "Disabled" }
