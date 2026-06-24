@@ -130,7 +130,6 @@ resource "azapi_resource" "horizondb_cluster" {
     properties = {
       administratorLogin         = local.postgres_admin_username
       administratorLoginPassword = random_password.postgres_admin.result
-      createMode                 = "Create"
       version                    = "17"
       vCores                     = 2
       storageSizeInGb            = 32
@@ -140,6 +139,10 @@ resource "azapi_resource" "horizondb_cluster" {
   }
 
   response_export_values = ["properties.fullyQualifiedDomainName"]
+
+  lifecycle {
+    ignore_changes = [body]
+  }
 
   tags = local.tags
 }
