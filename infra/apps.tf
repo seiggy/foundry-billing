@@ -15,12 +15,6 @@ resource "azurerm_container_app" "api" {
     key_vault_secret_id = azurerm_key_vault_secret.postgres_connection_string.versionless_id
   }
 
-  secret {
-    name                = "entra-client-secret"
-    identity            = azurerm_user_assigned_identity.api.id
-    key_vault_secret_id = azurerm_key_vault_secret.entra_client_secret.versionless_id
-  }
-
   template {
     min_replicas = 1
     max_replicas = 3
@@ -54,16 +48,6 @@ resource "azurerm_container_app" "api" {
       env {
         name  = "AzureAd__TenantId"
         value = local.effective_tenant_id
-      }
-
-      env {
-        name  = "AzureAd__ClientId"
-        value = azuread_application.foundry_billing.client_id
-      }
-
-      env {
-        name        = "AzureAd__ClientSecret"
-        secret_name = "entra-client-secret"
       }
 
       env {
