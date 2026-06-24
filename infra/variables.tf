@@ -1,7 +1,7 @@
 variable "location" {
   type        = string
   description = "Azure region for shared resources."
-  default     = "centralus"
+  default     = "westus2"
 }
 
 variable "environment_name" {
