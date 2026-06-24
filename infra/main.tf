@@ -118,39 +118,33 @@ resource "azurerm_key_vault_access_policy" "api" {
   ]
 }
 
-resource "azapi_resource" "horizondb_cluster" {
-  type      = "Microsoft.HorizonDb/clusters@2026-01-20-preview"
-  name      = local.postgres_server_name
-  location  = azurerm_resource_group.main.location
-  parent_id = azurerm_resource_group.main.id
+resource "azurerm_postgresql_flexible_server" "main" {
+  name                          = local.postgres_server_name
+  resource_group_name           = azurerm_resource_group.main.name
+  location                      = azurerm_resource_group.main.location
+  version                       = "17"
+  administrator_login           = local.postgres_admin_username
+  administrator_password        = random_password.postgres_admin.result
+  public_network_access_enabled = true
+  sku_name                      = "B_Standard_B1ms"
+  storage_mb                    = 32768
+  backup_retention_days         = 7
+  geo_redundant_backup_enabled  = false
+  tags                          = local.tags
+}
 
-  schema_validation_enabled = false
+resource "azurerm_postgresql_flexible_server_database" "main" {
+  name      = local.postgres_database_name
+  server_id = azurerm_postgresql_flexible_server.main.id
+  charset   = "UTF8"
+  collation = "en_US.utf8"
+}
 
-  body = {
-    properties = {
-      administratorLogin         = local.postgres_admin_username
-      administratorLoginPassword = random_password.postgres_admin.result
-      version                    = "17"
-      vCores                     = 2
-      storageSizeInGb            = 32
-      highAvailability           = { mode = "Disabled" }
-      network                    = { publicNetworkAccess = "Enabled" }
-    }
-  }
-
-  response_export_values = ["properties.fullyQualifiedDomainName"]
-
-  timeouts {
-    create = "120m"
-    update = "30m"
-    delete = "30m"
-  }
-
-  lifecycle {
-    ignore_changes = [body]
-  }
-
-  tags = local.tags
+resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
+  name             = "allow-azure-services"
+  server_id        = azurerm_postgresql_flexible_server.main.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
 }
 
 resource "azurerm_key_vault_secret" "postgres_admin_password" {
@@ -163,12 +157,12 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
 
 resource "azurerm_key_vault_secret" "postgres_connection_string" {
   name         = "foundry-billing-db-connection-string"
-  value        = "Host=${azapi_resource.horizondb_cluster.output.properties.fullyQualifiedDomainName};Database=${local.postgres_database_name};Username=${local.postgres_admin_username};Password=${random_password.postgres_admin.result};Ssl Mode=Require;Trust Server Certificate=true"
+  value        = "Host=${azurerm_postgresql_flexible_server.main.fqdn};Database=${local.postgres_database_name};Username=${local.postgres_admin_username};Password=${random_password.postgres_admin.result};Ssl Mode=Require;Trust Server Certificate=true"
   key_vault_id = azurerm_key_vault.main.id
 
   depends_on = [
     azurerm_key_vault_access_policy.deployer,
-    azapi_resource.horizondb_cluster,
+    azurerm_postgresql_flexible_server_database.main,
   ]
 }
 
