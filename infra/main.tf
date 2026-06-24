@@ -81,15 +81,15 @@ resource "azurerm_user_assigned_identity" "api" {
 }
 
 resource "azurerm_key_vault" "main" {
-  name                       = local.key_vault_name
-  location                   = azurerm_resource_group.main.location
-  resource_group_name        = azurerm_resource_group.main.name
-  tenant_id                  = local.effective_tenant_id
-  sku_name                   = "standard"
-  purge_protection_enabled   = false
-  soft_delete_retention_days = 7
+  name                          = local.key_vault_name
+  location                      = azurerm_resource_group.main.location
+  resource_group_name           = azurerm_resource_group.main.name
+  tenant_id                     = local.effective_tenant_id
+  sku_name                      = "standard"
+  purge_protection_enabled      = false
+  soft_delete_retention_days    = 7
   public_network_access_enabled = true
-  tags                       = local.tags
+  tags                          = local.tags
 }
 
 resource "azurerm_key_vault_access_policy" "deployer" {
@@ -139,6 +139,8 @@ resource "azapi_resource" "horizondb_cluster" {
     }
   }
 
+  response_export_values = ["properties.fullyQualifiedDomainName"]
+
   tags = local.tags
 }
 
@@ -152,7 +154,7 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
 
 resource "azurerm_key_vault_secret" "postgres_connection_string" {
   name         = "foundry-billing-db-connection-string"
-  value        = "Host=${azapi_resource.horizondb_cluster.name}.cluster.postgres.database.azure.com;Database=${local.postgres_database_name};Username=${local.postgres_admin_username};Password=${random_password.postgres_admin.result};Ssl Mode=Require;Trust Server Certificate=true"
+  value        = "Host=${azapi_resource.horizondb_cluster.output.properties.fullyQualifiedDomainName};Database=${local.postgres_database_name};Username=${local.postgres_admin_username};Password=${random_password.postgres_admin.result};Ssl Mode=Require;Trust Server Certificate=true"
   key_vault_id = azurerm_key_vault.main.id
 
   depends_on = [

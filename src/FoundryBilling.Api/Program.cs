@@ -2,11 +2,20 @@ using FoundryBilling.Api.Endpoints;
 using FoundryBilling.Api.Data;
 using FoundryBilling.Api.Infrastructure;
 using FoundryBilling.Api.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddNpgsqlDbContext<BillingDbContext>("foundry-billing-db");
+
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection(AuthOptions.SectionName));
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options =>
@@ -27,6 +36,8 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddFoundryBillingInfrastructure(builder.Configuration);
 builder.Services.AddFoundryBillingServices();
+builder.Services.ConfigureApplicationCookie(ConfigureAuthCookie);
+builder.Services.Configure<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme, ConfigureAuthCookie);
 
 var app = builder.Build();
 
@@ -39,7 +50,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("WebClient");
+app.UseAuthentication();
+app.UseAuthorization();
 
+app.MapAuthEndpoints();
 app.UseStaticFiles();
 
 app.MapDefaultEndpoints();
@@ -49,6 +63,41 @@ app.MapFoundryBillingEndpoints();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+void ConfigureAuthCookie(CookieAuthenticationOptions options)
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.LoginPath = "/auth/login";
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (IsApiAuthRequest(context.Request.Path))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
+
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (IsApiAuthRequest(context.Request.Path))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        }
+
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+}
+
+static bool IsApiAuthRequest(PathString path) =>
+    path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
+    || path.StartsWithSegments("/auth/me", StringComparison.OrdinalIgnoreCase);
 
 public partial class Program;
 

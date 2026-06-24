@@ -14,6 +14,7 @@ import type {
 } from '../types/billing'
 
 const API_ROOT = '/api'
+const LOGIN_PATH = '/auth/login'
 
 function toApiPath(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
@@ -32,6 +33,12 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
     this.details = details
+  }
+}
+
+function redirectToLogin() {
+  if (window.location.pathname !== LOGIN_PATH) {
+    window.location.href = LOGIN_PATH
   }
 }
 
@@ -66,9 +73,14 @@ export async function apiFetch<T>(
   const response = await fetch(toApiPath(path), {
     ...init,
     headers,
+    credentials: init.credentials ?? 'same-origin',
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      redirectToLogin()
+    }
+
     throw new ApiError(response.status, await response.text())
   }
 

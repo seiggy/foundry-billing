@@ -6,11 +6,37 @@
   padding: 2rem;
 }
 
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+
+.auth-card {
+  width: min(100%, 24rem);
+  display: grid;
+  gap: 1rem;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--panel-bg);
+}
+
+.auth-button {
+  justify-self: start;
+}
+
 .app-header {
   display: flex;
   justify-content: space-between;
   gap: 1.5rem;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.app-header-copy {
+  display: grid;
+  gap: 0.5rem;
 }
 
 .app-kicker {
@@ -26,18 +52,37 @@
   margin: 0;
 }
 
-.app-meta {
+.user-badge {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--panel-muted);
 }
 
-.meta-pill {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.45rem 0.85rem;
-  background: var(--panel-muted);
+.user-name {
   color: var(--text-h);
+  font-weight: 600;
+}
+
+.user-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.user-link:hover {
+  text-decoration: underline;
+}
+
+.user-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
 }
 
 .action-button {
@@ -721,6 +766,11 @@
   .sync-actions {
     align-items: flex-start;
     justify-content: flex-start;
+  }
+
+  .user-badge {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .chart-wrap {

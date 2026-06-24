@@ -4,7 +4,8 @@ public static class EndpointRouteBuilderExtensions
 {
     public static IEndpointRouteBuilder MapFoundryBillingEndpoints(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api");
+        var api = app.MapGroup("/api")
+            .RequireAuthorization();
 
         api.MapAgentEndpoints();
         api.MapAnalyticsEndpoints();

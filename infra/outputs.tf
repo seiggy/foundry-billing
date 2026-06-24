@@ -12,3 +12,8 @@ output "AZURE_KEY_VAULT_NAME" {
   value       = azurerm_key_vault.main.name
   description = "Key Vault name holding deployment secrets."
 }
+
+output "ENTRA_CLIENT_ID" {
+  value       = azuread_application.foundry_billing.client_id
+  description = "Entra app registration client ID."
+}

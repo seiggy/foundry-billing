@@ -5,6 +5,7 @@ import { Projects } from './pages/Projects'
 import { PtuCalculator } from './pages/PtuCalculator'
 import { Analytics } from './pages/Reports'
 import { Sync } from './pages/Sync'
+import { useAuth } from './hooks/useAuth'
 import { useHashRoute } from './hooks/useHashRoute'
 
 const routes = ['dashboard', 'projects', 'agents', 'analytics', 'ptu-calc', 'sync'] as const
@@ -43,21 +44,45 @@ function renderRoute(route: RouteKey) {
 
 function App() {
   const { route, navigate } = useHashRoute(routes, 'dashboard')
+  const { user, loading, login, logout } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="auth-shell">
+        <main className="auth-card">
+          <p className="app-kicker">Foundry Billing</p>
+          <h1>Loading…</h1>
+        </main>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="auth-shell">
+        <main className="auth-card">
+          <p className="app-kicker">Foundry Billing</p>
+          <h1>Foundry Billing</h1>
+          <button type="button" className="action-button auth-button" onClick={login}>
+            Sign in with Microsoft
+          </button>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
+        <div className="app-header-copy">
           <p className="app-kicker">Foundry Billing</p>
           <h1>Billing monitor</h1>
-          <p className="app-summary">
-            Live inventory and token usage from the API across hubs, projects, deployments, and
-            PTU planning surfaces.
-          </p>
         </div>
-        <div className="app-meta">
-          <span className="meta-pill">Vite + React + TypeScript</span>
-          <span className="meta-pill">API via /api proxy</span>
+        <div className="user-badge" aria-label="Signed in user">
+          <span className="user-name">{user.name}</span>
+          <button type="button" className="user-link" onClick={logout}>
+            Sign out
+          </button>
         </div>
       </header>
 
