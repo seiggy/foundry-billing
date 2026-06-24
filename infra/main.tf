@@ -141,21 +141,6 @@ resource "azapi_resource" "horizondb_cluster" {
   tags = local.tags
 }
 
-resource "azapi_resource" "horizondb_firewall_rule" {
-  type      = "Microsoft.HorizonDb/clusters/firewallRules@2026-01-20-preview"
-  name      = "allow-azure-services"
-  parent_id = azapi_resource.horizondb_cluster.id
-
-  schema_validation_enabled = false
-
-  body = {
-    properties = {
-      startIpAddress = "0.0.0.0"
-      endIpAddress   = "0.0.0.0"
-    }
-  }
-}
-
 resource "azurerm_key_vault_secret" "postgres_admin_password" {
   name         = "postgres-admin-password"
   value        = random_password.postgres_admin.result
