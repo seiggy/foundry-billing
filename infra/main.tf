@@ -88,6 +88,7 @@ resource "azurerm_key_vault" "main" {
   sku_name                   = "standard"
   purge_protection_enabled   = false
   soft_delete_retention_days = 7
+  public_network_access_enabled = true
   tags                       = local.tags
 }
 
