@@ -140,6 +140,12 @@ resource "azapi_resource" "horizondb_cluster" {
 
   response_export_values = ["properties.fullyQualifiedDomainName"]
 
+  timeouts {
+    create = "45m"
+    update = "30m"
+    delete = "30m"
+  }
+
   lifecycle {
     ignore_changes = [body]
   }
