@@ -51,49 +51,7 @@ title: Architecture
 
 ## End-to-end data flow
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ Browser                                                            │
-│  React SPA                                                         │
-│  • GET /auth/me                                                    │
-│  • GET /api/* and POST /api/* with cookie session                  │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ FoundryBilling.Api                                                 │
-│  Program.cs                                                        │
-│  • HTTPS redirection                                               │
-│  • CORS policy                                                     │
-│  • Authentication + authorization                                  │
-│  • /auth routes                                                    │
-│  • /api routes                                                     │
-│  • static files + SPA fallback                                     │
-└───────────────┬───────────────────────────────┬─────────────────────┘
-                │                               │
-                │                               │ background schedule / trigger
-                ▼                               ▼
-┌──────────────────────────────┐     ┌────────────────────────────────┐
-│ PostgreSQL                   │     │ MetricsSyncWorker              │
-│  FoundryHubs                 │     │  1. Discover hubs              │
-│  FoundryProjects             │     │  2. Discover projects          │
-│  FoundryAgents               │     │  3. Discover deployments       │
-│  ModelDeployments            │     │  4. Discover agents            │
-│  UsageMetricSlices           │     │  5. Query Azure Monitor        │
-│  DailyUsageRollups           │     │  6. Insert new slices          │
-│  SyncRuns                    │     │  7. Record sync status         │
-└──────────────────────────────┘     └──────────────┬─────────────────┘
-                                                    │
-                                                    ▼
-                               ┌─────────────────────────────────────┐
-                               │ Azure                               │
-                               │  • Cognitive Services accounts      │
-                               │  • Foundry projects                 │
-                               │  • Foundry deployments              │
-                               │  • Azure Monitor token metrics      │
-                               │  • Azure AI Projects agents         │
-                               └─────────────────────────────────────┘
-```
+![Sync Pipeline](images/sync-pipeline.png)
 
 ## Database schema
 
@@ -111,14 +69,7 @@ title: Architecture
 
 ### Relationships
 
-```text
-FoundryHub (1) ───< FoundryProject (many) ───< FoundryAgent (many)
-     │
-     └────< ModelDeployment (many) ───< UsageMetricSlice (many)
-                                  └───< DailyUsageRollup (many)
-
-SyncRun is standalone.
-```
+![Database Schema](images/database-schema.png)
 
 ### Indexes and constraints
 
@@ -186,23 +137,7 @@ For each hub, `MetricsSyncService` queries Azure Monitor with these rules:
 
 ## Authentication flow (BFF pattern)
 
-```text
-Browser                    API                         Entra ID
-   │                        │                              │
-   │ GET /auth/login        │                              │
-   ├───────────────────────▶│ Challenge OIDC              │
-   │                        ├─────────────────────────────▶│
-   │                        │                              │ sign-in
-   │◀───────────────────────┤ redirect with auth cookie    │
-   │                        │                              │
-   │ GET /auth/me           │                              │
-   ├───────────────────────▶│ reads server-side cookie     │
-   │◀───────────────────────┤ 200 { name, email }          │
-   │                        │                              │
-   │ GET /api/...           │                              │
-   ├───────────────────────▶│ cookie auth + authorization  │
-   │◀───────────────────────┤ JSON response                │
-```
+![Auth Flow](images/auth-flow.png)
 
 Key points:
 

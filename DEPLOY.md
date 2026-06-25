@@ -95,25 +95,7 @@ dotnet user-secrets set "Azure:TenantId" "<tenant-id>"
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────┐
-│ Azure Container App (single container)          │
-│  ┌─────────────────────────────────────────┐    │
-│  │ .NET 10 API + React SPA (wwwroot)       │    │
-│  │  • BFF Auth (Entra OIDC + cookie)       │    │
-│  │  • Billing sync worker (background)     │    │
-│  │  • Analytics + PTU calculator           │    │
-│  └─────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────┘
-         │                          │
-         ▼                          ▼
-┌─────────────────┐    ┌─────────────────────────┐
-│ PostgreSQL      │    │ Azure APIs              │
-│ Flexible Server │    │  • ARM (hubs/projects)  │
-│ (canadacentral) │    │  • Monitor (metrics)    │
-│                 │    │  • AI Projects (agents) │
-└─────────────────┘    └─────────────────────────┘
-```
+![Deployment Runtime Architecture](docs/images/deployment-runtime.png)
 
 ## Notes
 

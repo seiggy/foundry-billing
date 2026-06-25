@@ -24,27 +24,7 @@ The app depends on:
 
 ## Infrastructure overview
 
-```text
-azd + Terraform
-      │
-      ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Resource Group                                             │
-│  ├── Log Analytics workspace                               │
-│  ├── Container Apps environment                            │
-│  ├── Container App (API + built SPA)                       │
-│  ├── User-assigned managed identity                        │
-│  ├── Key Vault                                             │
-│  ├── PostgreSQL Flexible Server                            │
-│  └── PostgreSQL database                                   │
-└─────────────────────────────────────────────────────────────┘
-      │                          │
-      ▼                          ▼
-Managed identity         Entra app registration
-• Reader                 • callback URI /auth/callback
-• Monitoring Reader      • client ID + client secret
-• Cognitive Services User
-```
+![Deployment Infrastructure](images/deployment-infrastructure.png)
 
 ## Prerequisites
 

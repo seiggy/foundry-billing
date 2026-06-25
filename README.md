@@ -36,35 +36,7 @@ This repository does not include screenshots. The current UI has six pages:
 
 ## Architecture overview
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Browser                                                    │
-│  React SPA (hash routes)                                   │
-│  • /auth/login and /auth/me for session flow               │
-│  • /api/* same-origin JSON calls                           │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│ FoundryBilling.Api (.NET 10)                               │
-│  • Minimal API endpoints                                   │
-│  • Entra ID OIDC + cookie auth                             │
-│  • MetricsSyncWorker background service                    │
-│  • BillingService / ProjectService / PtuCalculatorService  │
-└───────────────┬───────────────────────────────┬─────────────┘
-                │                               │
-                ▼                               ▼
-┌──────────────────────────┐     ┌────────────────────────────┐
-│ PostgreSQL               │     │ Azure control/data planes  │
-│  FoundryHubs             │     │  • ARM hub/project/deploy  │
-│  FoundryProjects         │     │  • Azure Monitor metrics   │
-│  FoundryAgents           │     │  • AI Projects SDK agents  │
-│  ModelDeployments        │     └────────────────────────────┘
-│  UsageMetricSlices       │
-│  DailyUsageRollups       │
-│  SyncRuns                │
-└──────────────────────────┘
-```
+![Architecture Overview](docs/images/architecture-overview.png)
 
 More detail: [docs/architecture.md](docs/architecture.md)
 
