@@ -26,6 +26,13 @@ public static class ServiceCollectionExtensions
                 credentialOptions.TenantId = options.TenantId;
             }
 
+            // AZURE_CLIENT_ID env var tells DefaultAzureCredential which user-assigned managed identity to use
+            var managedIdentityClientId = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID");
+            if (!string.IsNullOrWhiteSpace(managedIdentityClientId))
+            {
+                credentialOptions.ManagedIdentityClientId = managedIdentityClientId;
+            }
+
             return new DefaultAzureCredential(credentialOptions);
         });
         services.AddSingleton(serviceProvider =>

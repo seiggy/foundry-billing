@@ -46,6 +46,11 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.api.client_id
+      }
+
+      env {
         name  = "AzureAd__TenantId"
         value = local.effective_tenant_id
       }
