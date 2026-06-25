@@ -129,4 +129,5 @@ export const syncClient = {
   getStatus: () => apiFetch<SyncStatus>('/api/sync/status'),
   getHistory: () => apiFetch<SyncHistory>('/api/sync/history'),
   trigger: () => apiFetch<{ runId: string }>('/api/sync/trigger', { method: 'POST' }),
+  backfill: (days: number = 90) => apiFetch<{ runId: string }>(`/api/sync/backfill?days=${days}`, { method: 'POST' }),
 }

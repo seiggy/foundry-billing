@@ -18,7 +18,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
     private readonly IOptionsMonitor<SyncOptions> _syncOptions;
     private readonly ILogger<MetricsSyncWorker> _logger;
     private readonly object _stateLock = new();
-    private readonly Channel<bool> _triggerChannel = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
+    private readonly Channel<int?> _triggerChannel = Channel.CreateBounded<int?>(new BoundedChannelOptions(1)
     {
         SingleReader = true,
         SingleWriter = false,
@@ -28,6 +28,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
     private volatile bool _isRunning;
     private SyncRunStatus? _currentRun;
     private SyncRunStatus? _pendingRun;
+    private int? _pendingLookbackHours;
 
     public MetricsSyncWorker(
         IServiceScopeFactory serviceScopeFactory,
@@ -70,9 +71,24 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
         lock (_stateLock)
         {
             _pendingRun ??= new SyncRunStatus(Guid.NewGuid(), DateTimeOffset.UtcNow, RunningStatus);
+            _pendingLookbackHours = null; // use default
         }
 
-        _triggerChannel.Writer.TryWrite(true);
+        _triggerChannel.Writer.TryWrite(null);
+        return Task.CompletedTask;
+    }
+
+    public Task TriggerBackfillAsync(int lookbackDays, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        lock (_stateLock)
+        {
+            _pendingRun ??= new SyncRunStatus(Guid.NewGuid(), DateTimeOffset.UtcNow, RunningStatus);
+            _pendingLookbackHours = lookbackDays * 24;
+        }
+
+        _triggerChannel.Writer.TryWrite(lookbackDays * 24);
         return Task.CompletedTask;
     }
 
@@ -113,11 +129,18 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
     private async Task RunCycleSafelyAsync(SyncRunStatus? requestedRun, CancellationToken stoppingToken)
     {
         var currentRun = requestedRun ?? new SyncRunStatus(Guid.NewGuid(), DateTimeOffset.UtcNow, RunningStatus);
+        int? lookbackOverride;
+        lock (_stateLock)
+        {
+            lookbackOverride = _pendingLookbackHours;
+            _pendingLookbackHours = null;
+        }
+
         SetCurrentRun(currentRun);
 
         try
         {
-            await RunCycleAsync(currentRun, stoppingToken);
+            await RunCycleAsync(currentRun, lookbackOverride, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -132,7 +155,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
         }
     }
 
-    private async Task RunCycleAsync(SyncRunStatus runStatus, CancellationToken stoppingToken)
+    private async Task RunCycleAsync(SyncRunStatus runStatus, int? lookbackHoursOverride, CancellationToken stoppingToken)
     {
         await using var scope = _serviceScopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
@@ -208,6 +231,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
                         metricsSyncService,
                         hubEntity,
                         syncOptions,
+                        lookbackHoursOverride,
                         syncTimestamp,
                         summary,
                         stoppingToken);
@@ -265,6 +289,7 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
         IMetricsSyncService metricsSyncService,
         FoundryHub hubEntity,
         SyncOptions syncOptions,
+        int? lookbackHoursOverride,
         DateTimeOffset syncTimestamp,
         SyncSummary summary,
         CancellationToken stoppingToken)
@@ -381,8 +406,9 @@ public sealed class MetricsSyncWorker : BackgroundService, ISyncTriggerService
 
         await dbContext.SaveChangesAsync(stoppingToken);
 
+        var lookbackHours = lookbackHoursOverride ?? Math.Max(1, syncOptions.MetricLookbackHours);
         var metricsWindowEnd = syncTimestamp;
-        var metricsWindowStart = metricsWindowEnd.AddHours(-Math.Max(1, syncOptions.MetricLookbackHours));
+        var metricsWindowStart = metricsWindowEnd.AddHours(-lookbackHours);
         var metricDataPoints = await metricsSyncService.GetTokenUsageAsync(
             hubEntity.AzureResourceId,
             metricsWindowStart,

@@ -18,6 +18,10 @@ public static class SyncEndpoints
             .WithName("TriggerSync")
             .WithSummary("Triggers a metrics sync cycle.");
 
+        sync.MapPost("/backfill", TriggerBackfillAsync)
+            .WithName("TriggerBackfill")
+            .WithSummary("Triggers a full historical backfill (up to 90 days).");
+
         sync.MapGet("/status", GetSyncStatusAsync)
             .WithName("GetSyncStatus")
             .WithSummary("Gets the current metrics sync worker status.");
@@ -34,6 +38,23 @@ public static class SyncEndpoints
         CancellationToken cancellationToken)
     {
         await worker.TriggerSyncAsync(cancellationToken);
+
+        var runId = worker.PendingRun?.Id
+            ?? worker.CurrentRun?.Id
+            ?? Guid.Empty;
+
+        return TypedResults.Accepted(
+            uri: "/api/sync/history",
+            value: new SyncTriggerAcceptedResponse(runId));
+    }
+
+    private static async Task<Accepted<SyncTriggerAcceptedResponse>> TriggerBackfillAsync(
+        int? days,
+        MetricsSyncWorker worker,
+        CancellationToken cancellationToken)
+    {
+        var lookbackDays = Math.Clamp(days ?? 90, 1, 93); // Azure Monitor max retention is 93 days
+        await worker.TriggerBackfillAsync(lookbackDays, cancellationToken);
 
         var runId = worker.PendingRun?.Id
             ?? worker.CurrentRun?.Id

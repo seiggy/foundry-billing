@@ -137,6 +137,23 @@ export function Sync() {
     }
   }, [refreshAll])
 
+  const [isBackfilling, setIsBackfilling] = useState(false)
+
+  const handleBackfill = useCallback(async () => {
+    setIsBackfilling(true)
+    setTriggerError(null)
+
+    try {
+      const response = await syncClient.backfill(90)
+      setTriggerNotice(`Backfill (90 days) accepted. Run ${response.runId} queued — this may take several minutes.`)
+      refreshAll()
+    } catch (error) {
+      setTriggerError(toErrorMessage(error))
+    } finally {
+      setIsBackfilling(false)
+    }
+  }, [refreshAll])
+
   const runs = useMemo(
     () =>
       [...(history?.runs ?? [])].sort(
@@ -204,9 +221,18 @@ export function Sync() {
               type="button"
               className="action-button"
               onClick={handleTrigger}
-              disabled={isTriggering || status?.isRunning === true}
+              disabled={isTriggering || isBackfilling || status?.isRunning === true}
             >
               {status?.isRunning ? 'Sync running' : isTriggering ? 'Triggering…' : 'Run Sync Now'}
+            </button>
+            <button
+              type="button"
+              className="action-button action-button--secondary"
+              onClick={handleBackfill}
+              disabled={isTriggering || isBackfilling || status?.isRunning === true}
+              title="Pull 90 days of historical metrics from Azure Monitor"
+            >
+              {isBackfilling ? 'Starting…' : 'Backfill 90 Days'}
             </button>
             <button type="button" className="action-button" onClick={refreshAll}>
               Refresh
