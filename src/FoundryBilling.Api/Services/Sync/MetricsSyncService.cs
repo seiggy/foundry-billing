@@ -15,7 +15,10 @@ public sealed class MetricsSyncService : IMetricsSyncService
     [
         "ProcessedPromptTokens",
         "GeneratedTokens",
-        "TokenTransaction"
+        "TokenTransaction",
+        "InputTokens",
+        "OutputTokens",
+        "TotalTokens"
     ];
 
     private readonly MetricsQueryClient _metricsQueryClient;
@@ -75,17 +78,20 @@ public sealed class MetricsSyncService : IMetricsSyncService
                         }
 
                         var metricValue = ToTokenCount(value.Total);
-                        if (string.Equals(metricName, "ProcessedPromptTokens", StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(metricName, "ProcessedPromptTokens", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(metricName, "InputTokens", StringComparison.OrdinalIgnoreCase))
                         {
-                            bucket.PromptTokens = metricValue;
+                            bucket.PromptTokens = Math.Max(bucket.PromptTokens, metricValue);
                         }
-                        else if (string.Equals(metricName, "GeneratedTokens", StringComparison.OrdinalIgnoreCase))
+                        else if (string.Equals(metricName, "GeneratedTokens", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(metricName, "OutputTokens", StringComparison.OrdinalIgnoreCase))
                         {
-                            bucket.CompletionTokens = metricValue;
+                            bucket.CompletionTokens = Math.Max(bucket.CompletionTokens, metricValue);
                         }
-                        else if (string.Equals(metricName, "TokenTransaction", StringComparison.OrdinalIgnoreCase))
+                        else if (string.Equals(metricName, "TokenTransaction", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(metricName, "TotalTokens", StringComparison.OrdinalIgnoreCase))
                         {
-                            bucket.TotalTokens = metricValue;
+                            bucket.TotalTokens = Math.Max(bucket.TotalTokens, metricValue);
                         }
                     }
                 }

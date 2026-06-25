@@ -49,7 +49,10 @@ public sealed class FoundryDiscoveryService : IFoundryDiscoveryService
             var discoveredHubs = new List<DiscoveredHub>();
             await foreach (var account in subscription.GetCognitiveServicesAccountsAsync(ct))
             {
-                if (!string.Equals(account.Data.Kind, "AIServices", StringComparison.OrdinalIgnoreCase))
+                // Include both new Foundry hubs (AIServices) and legacy Azure OpenAI resources (OpenAI)
+                var kind = account.Data.Kind;
+                if (!string.Equals(kind, "AIServices", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(kind, "OpenAI", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

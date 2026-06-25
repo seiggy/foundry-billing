@@ -6,5 +6,5 @@ public sealed class SyncOptions
 
     public int IntervalMinutes { get; init; } = 60;
 
-    public int MetricLookbackHours { get; init; } = 2;
+    public int MetricLookbackHours { get; init; } = 24;
 }
